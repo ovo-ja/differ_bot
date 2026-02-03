@@ -263,15 +263,27 @@
                         </div>
                         
                         <div id="strat2Settings" style="display:none">
-                            <div style="padding:8px;background:rgba(16,185,129,0.1);border-radius:4px">
-                                <div style="font-size:9px;color:var(--green);font-weight:600;margin-bottom:6px">❄️ Track coldest digit</div>
+                            <div style="padding:8px;background:rgba(16,185,129,0.1);border-radius:4px;margin-bottom:6px">
+                                <div style="font-size:9px;color:var(--green);font-weight:600;margin-bottom:6px">❄️ Track coldest digit(s)</div>
                                 <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">
-                                    <span style="font-size:9px;color:var(--muted)">Threshold ≤</span>
+                                    <span style="font-size:9px;color:var(--muted)">Threshold <</span>
                                     <input type="number" id="strat2Threshold" value="5" min="1" max="10" step="0.5" style="width:45px;padding:2px;margin:0;font-size:10px">
                                     <span style="font-size:8px;color:var(--muted)">%</span>
                                 </div>
+                                <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">
+                                    <span style="font-size:9px;color:var(--muted)">Stability</span>
+                                    <input type="number" id="strat2Stability" value="3" min="1" max="10" step="0.5" style="width:45px;padding:2px;margin:0;font-size:10px">
+                                    <span style="font-size:8px;color:var(--muted)">seconds</span>
+                                </div>
+                            </div>
+                            <div style="padding:8px;background:rgba(249,115,22,0.1);border-radius:4px">
+                                <div style="font-size:9px;color:var(--orange);font-weight:600;margin-bottom:6px">👻 Shadow Mode</div>
+                                <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">
+                                    <span style="font-size:9px;color:var(--muted)">Active Trades</span>
+                                    <input type="number" id="strat2ActiveTrades" value="3" min="1" max="20" style="width:45px;padding:2px;margin:0;font-size:10px">
+                                </div>
                                 <div style="font-size:8px;color:var(--muted)">
-                                    When coldest digit appears, wait for it to change, then trade
+                                    Shadow watches until loss, then trades X times
                                 </div>
                             </div>
                         </div>
@@ -480,10 +492,23 @@ const state = {
     
     // LOWEST CONFIDENCE + CONFIRM (Strategy 2)
     strat2: {
-        trackedDigit: null,       // Which cold digit we're tracking
-        trackedFreq: null,        // Its frequency when we started tracking
-        waitingForChange: false,  // Are we waiting for a different digit?
-        tradesPlaced: 0           // Total trades placed by Strategy 2
+        trackedDigit: null,           // Which digit got tapped
+        trackedFreq: null,            // Its frequency when tapped
+        waitingForChange: false,      // Waiting for next tick after tap
+        tradesPlaced: 0,              // Total trades placed by Strategy 2
+        
+        // Stability tracking
+        coldestDigits: [],            // Current coldest digit(s) [1, 5] or [6]
+        lastColdestSet: [],           // Previous tick's coldest set
+        stableSince: null,            // Timestamp when stability started
+        isStable: false,              // Stable for required seconds?
+        validTargets: [],             // Digits ready to trade
+        
+        // Shadow/Active Mode
+        phase: 'shadow',              // 'shadow' or 'active'
+        activeTradeCount: 0,          // Trades taken in active mode
+        simulatedTradeDigit: null,    // Which digit we "traded" in shadow
+        waitingForSimResult: false    // Waiting to see if sim won/lost?
     },
     
     // Win streaks
@@ -897,60 +922,149 @@ function handleTick(tick) {
         // ==========================================
         if (strat2Enabled && !state.tradePending) {
             const strat2Threshold = parseFloat(document.getElementById('strat2Threshold').value) || 5;
+            const stabilitySeconds = parseFloat(document.getElementById('strat2Stability').value) || 3;
+            const activeTradesTarget = parseInt(document.getElementById('strat2ActiveTrades').value) || 3;
             
-            // Find the coldest digit
+            // Build counts array
             const counts = [0,0,0,0,0,0,0,0,0,0];
             recent.forEach(t => counts[t.digit]++);
             
-            let coldestDigit = 0;
-            let coldestFreq = 100;
-            for (let i = 0; i < 10; i++) {
-                const freq = counts[i] / recent.length * 100;
-                if (freq < coldestFreq) {
-                    coldestFreq = freq;
-                    coldestDigit = i;
+            // ─────────────────────────────────────────────
+            // SHADOW MODE: Check for simulated trade result
+            // ─────────────────────────────────────────────
+            if (state.strat2.waitingForSimResult) {
+                if (digit === state.strat2.simulatedTradeDigit) {
+                    // Simulated LOSS - digit matched (DIFFERS would lose)
+                    log(`👻 S2 SHADOW: ❌ Simulated LOSS (digit ${digit} matched) - ACTIVATING!`, 'trade');
+                    state.strat2.phase = 'active';
+                    state.strat2.activeTradeCount = 0;
+                    state.strat2.simulatedTradeDigit = null;
+                    state.strat2.waitingForSimResult = false;
+                    resetStrat2();
+                    updateStrat2Indicator();
+                } else {
+                    // Simulated WIN - digit didn't match
+                    log(`👻 S2 SHADOW: ✅ Simulated WIN (digit ${digit} ≠ ${state.strat2.simulatedTradeDigit}) - Continue watching`, 'info');
+                    state.strat2.simulatedTradeDigit = null;
+                    state.strat2.waitingForSimResult = false;
+                    resetStrat2();
+                    updateStrat2Indicator();
                 }
+                return;
             }
             
-            // State machine for Strategy 2
-            if (!state.strat2.waitingForChange) {
-                // Not tracking yet - check if coldest digit appeared AND is under threshold
-                if (digit === coldestDigit && coldestFreq <= strat2Threshold) {
-                    // Start tracking!
-                    state.strat2.trackedDigit = digit;
-                    state.strat2.trackedFreq = coldestFreq;
-                    state.strat2.waitingForChange = true;
-                    
-                    log(`🎯 S2: Coldest digit ${digit} (${coldestFreq.toFixed(1)}%) tapped! Waiting for change...`, 'info');
+            // ─────────────────────────────────────────────
+            // STEP 5: If waiting for change after tap
+            // ─────────────────────────────────────────────
+            if (state.strat2.waitingForChange) {
+                if (digit === state.strat2.trackedDigit) {
+                    // DOUBLE! Cancel this setup
+                    const phaseEmoji = state.strat2.phase === 'shadow' ? '👻' : '🔥';
+                    log(`${phaseEmoji} S2: Digit ${digit} doubled - setup cancelled`, 'loss');
+                    resetStrat2();
                     updateStrat2Indicator();
+                } else {
+                    // DIFFERENT! This is where we trade or simulate
+                    if (state.strat2.phase === 'shadow') {
+                        // SHADOW MODE: Simulate the trade, wait for result
+                        log(`👻 S2 SHADOW: Digit changed to ${digit}! Simulating trade on ${state.strat2.trackedDigit}...`, 'alert');
+                        state.strat2.simulatedTradeDigit = state.strat2.trackedDigit;
+                        state.strat2.waitingForSimResult = true;
+                        state.strat2.trackedDigit = null;
+                        state.strat2.trackedFreq = null;
+                        state.strat2.waitingForChange = false;
+                        updateStrat2Indicator();
+                    } else {
+                        // ACTIVE MODE: Real trade!
+                        state.strat2.activeTradeCount++;
+                        log(`🔥 S2 ACTIVE (${state.strat2.activeTradeCount}/${activeTradesTarget}): Trading DIFFERS on ${state.strat2.trackedDigit}`, 'trade');
+                        
+                        state.triggers.push({
+                            time: getTimestamp(),
+                            digit: state.strat2.trackedDigit,
+                            freq: state.strat2.trackedFreq,
+                            reason: `🔥 S2: Active (${state.strat2.activeTradeCount}/${activeTradesTarget})`
+                        });
+                        updateTriggerHistory();
+                        
+                        state.currentTarget = state.strat2.trackedDigit;
+                        triggerStrat2Trade(state.strat2.trackedDigit, state.strat2.trackedFreq);
+                        
+                        // Check if active trades complete
+                        if (state.strat2.activeTradeCount >= activeTradesTarget) {
+                            log(`🔥 S2 ACTIVE: ${activeTradesTarget}/${activeTradesTarget} complete → Back to Shadow Mode`, 'info');
+                            state.strat2.phase = 'shadow';
+                            state.strat2.activeTradeCount = 0;
+                        }
+                        resetStrat2();
+                    }
+                }
+                return; // Exit, don't process further
+            }
+            
+            // ─────────────────────────────────────────────
+            // STEP 1: Find ALL coldest digits
+            // ─────────────────────────────────────────────
+            const { digits: coldestDigits, freq: coldestFreq } = findColdestDigits(counts, recent.length);
+            
+            // ─────────────────────────────────────────────
+            // STEP 2: Check if under threshold
+            // ─────────────────────────────────────────────
+            if (coldestFreq >= strat2Threshold) {
+                // Not cold enough, reset
+                if (state.strat2.isStable || state.strat2.stableSince) {
+                    const phaseEmoji = state.strat2.phase === 'shadow' ? '👻' : '🔥';
+                    log(`${phaseEmoji} S2: Coldest (${coldestFreq.toFixed(1)}%) not under ${strat2Threshold}% - resetting`, 'info');
+                }
+                resetStrat2();
+                updateStrat2Indicator();
+                return;
+            }
+            
+            // ─────────────────────────────────────────────
+            // STEP 3: Check stability
+            // ─────────────────────────────────────────────
+            const phaseEmoji = state.strat2.phase === 'shadow' ? '👻' : '🔥';
+            
+            if (sameSet(coldestDigits, state.strat2.lastColdestSet)) {
+                // Same set as before, check timer
+                const elapsed = (Date.now() - state.strat2.stableSince) / 1000;
+                
+                if (elapsed >= stabilitySeconds && !state.strat2.isStable) {
+                    // Just became stable!
+                    state.strat2.isStable = true;
+                    state.strat2.validTargets = [...coldestDigits];
+                    const targetList = coldestDigits.join(', ');
+                    log(`${phaseEmoji} S2: [${targetList}] stable for ${stabilitySeconds}s - valid target(s)!`, 'trade');
                 }
             } else {
-                // We ARE tracking - check if digit changed
-                if (digit !== state.strat2.trackedDigit) {
-                    // Different digit! Trade on the tracked digit
-                    log(`✅ S2: Digit changed to ${digit}! Trading DIFFERS on ${state.strat2.trackedDigit}`, 'trade');
-                    
-                    state.triggers.push({
-                        time: getTimestamp(),
-                        digit: state.strat2.trackedDigit,
-                        freq: state.strat2.trackedFreq,
-                        reason: `🎯 S2: Coldest+Confirm`
-                    });
-                    updateTriggerHistory();
-                    
-                    state.currentTarget = state.strat2.trackedDigit;
-                    triggerStrat2Trade(state.strat2.trackedDigit, state.strat2.trackedFreq);
-                    
-                    // Reset tracking
-                    state.strat2.trackedDigit = null;
-                    state.strat2.trackedFreq = null;
-                    state.strat2.waitingForChange = false;
-                } else {
-                    // Same digit repeated - keep waiting
-                    log(`🔄 S2: Digit ${digit} repeated (${state.consecutiveCount}x). Still waiting...`, 'alert');
-                    updateStrat2Indicator();
+                // Set changed, reset timer
+                if (state.strat2.stableSince && state.strat2.lastColdestSet.length > 0) {
+                    log(`${phaseEmoji} S2: Coldest changed [${state.strat2.lastColdestSet.join(',')}] → [${coldestDigits.join(',')}] - resetting`, 'info');
+                } else if (coldestDigits.length > 0) {
+                    const targetList = coldestDigits.join(', ');
+                    log(`${phaseEmoji} S2: Coldest is [${targetList}] (${coldestFreq.toFixed(1)}%) - stabilizing...`, 'info');
                 }
+                state.strat2.stableSince = Date.now();
+                state.strat2.isStable = false;
+                state.strat2.validTargets = [];
             }
+            
+            state.strat2.coldestDigits = coldestDigits;
+            state.strat2.lastColdestSet = [...coldestDigits];
+            
+            // ─────────────────────────────────────────────
+            // STEP 4: Check for tap on valid target
+            // ─────────────────────────────────────────────
+            if (state.strat2.validTargets.includes(digit)) {
+                // Tapped!
+                state.strat2.trackedDigit = digit;
+                state.strat2.trackedFreq = coldestFreq;
+                state.strat2.waitingForChange = true;
+                log(`${phaseEmoji} S2: Digit ${digit} tapped! Waiting for change...`, 'alert');
+            }
+            
+            updateStrat2Indicator();
         }
     }
     
@@ -1143,10 +1257,8 @@ function startAuto() {
     state.phase2TradeCount = 0;
     state.phase2TradeResults = [];
     
-    // Reset Strategy 2 state
-    state.strat2.trackedDigit = null;
-    state.strat2.trackedFreq = null;
-    state.strat2.waitingForChange = false;
+    // Reset Strategy 2 state (full reset including phase)
+    resetStrat2Full();
     
     log(`🤖 AUTO STARTED`, 'info');
     
@@ -1163,7 +1275,9 @@ function startAuto() {
     
     if (strat2Enabled) {
         const strat2Threshold = parseFloat(document.getElementById('strat2Threshold').value) || 5;
-        log(`❄️ S2: Coldest+Confirm (≤${strat2Threshold}%)`, 'info');
+        const stabilitySeconds = parseFloat(document.getElementById('strat2Stability').value) || 3;
+        const activeTradesTarget = parseInt(document.getElementById('strat2ActiveTrades').value) || 3;
+        log(`👻 S2: Shadow Mode (<${strat2Threshold}%, stable ${stabilitySeconds}s, ${activeTradesTarget} trades after loss)`, 'info');
     }
     
     updateAutoStatus();
@@ -1182,10 +1296,8 @@ function stopAuto() {
     state.phase2TradeCount = 0;
     state.phase2TradeResults = [];
     
-    // Reset Strategy 2 state
-    state.strat2.trackedDigit = null;
-    state.strat2.trackedFreq = null;
-    state.strat2.waitingForChange = false;
+    // Reset Strategy 2 state (full reset including phase)
+    resetStrat2Full();
     
     log('⏹️ Auto stopped', 'info');
     updateAutoStatus();
@@ -1290,6 +1402,59 @@ function triggerTwoPhaseDoubleTrade(digit, freq) {
     }, 2000);
 }
 
+// =============================================
+// STRATEGY 2 HELPER FUNCTIONS
+// =============================================
+
+// Find ALL digits with lowest frequency
+function findColdestDigits(counts, totalTicks) {
+    let minFreq = 100;
+    let coldest = [];
+    
+    for (let i = 0; i < 10; i++) {
+        const freq = counts[i] / totalTicks * 100;
+        if (freq < minFreq) {
+            minFreq = freq;
+            coldest = [i];
+        } else if (Math.abs(freq - minFreq) < 0.001) { // Handle floating point comparison
+            coldest.push(i);
+        }
+    }
+    
+    return { digits: coldest, freq: minFreq };
+}
+
+// Check if two arrays have same elements (order doesn't matter)
+function sameSet(arr1, arr2) {
+    if (!arr1 || !arr2) return false;
+    if (arr1.length !== arr2.length) return false;
+    const sorted1 = [...arr1].sort((a,b) => a-b);
+    const sorted2 = [...arr2].sort((a,b) => a-b);
+    return sorted1.every((val, i) => val === sorted2[i]);
+}
+
+// Full reset function for Strategy 2
+// Reset just the setup tracking (not phase/activeTradeCount)
+function resetStrat2() {
+    state.strat2.coldestDigits = [];
+    state.strat2.lastColdestSet = [];
+    state.strat2.stableSince = null;
+    state.strat2.isStable = false;
+    state.strat2.validTargets = [];
+    state.strat2.trackedDigit = null;
+    state.strat2.trackedFreq = null;
+    state.strat2.waitingForChange = false;
+    state.strat2.simulatedTradeDigit = null;
+    state.strat2.waitingForSimResult = false;
+}
+
+// Full reset including phase (used when stopping or starting auto)
+function resetStrat2Full() {
+    resetStrat2();
+    state.strat2.phase = 'shadow';
+    state.strat2.activeTradeCount = 0;
+}
+
 function triggerStrat2Trade(digit, freq) {
     state.tradePending = true;
     state.strat2.tradesPlaced++;
@@ -1375,19 +1540,55 @@ function updateStrat2Indicator() {
     }
     indicator.style.display = 'block';
     
-    const strat2Threshold = parseFloat(document.getElementById('strat2Threshold').value) || 5;
+    const threshold = parseFloat(document.getElementById('strat2Threshold').value) || 5;
+    const stabilitySeconds = parseFloat(document.getElementById('strat2Stability').value) || 3;
+    const activeTradesTarget = parseInt(document.getElementById('strat2ActiveTrades').value) || 3;
     
+    const isShadow = state.strat2.phase === 'shadow';
+    const phaseLabel = isShadow ? '👻 SHADOW' : `🔥 ACTIVE (${state.strat2.activeTradeCount}/${activeTradesTarget})`;
+    
+    // State: Waiting for simulated result (shadow only)
+    if (state.strat2.waitingForSimResult) {
+        indicator.style.borderColor = 'var(--purple)';
+        title.style.color = 'var(--purple)';
+        title.textContent = `👻 SIM TRADE: ${state.strat2.simulatedTradeDigit}`;
+        subtitle.textContent = `Waiting for result...`;
+        return;
+    }
+    
+    // State: Waiting for change after tap
     if (state.strat2.waitingForChange) {
+        indicator.style.borderColor = 'var(--orange)';
+        title.style.color = 'var(--orange)';
+        title.textContent = `${phaseLabel}: ⚡ ${state.strat2.trackedDigit}`;
+        subtitle.textContent = `Tapped! Waiting for change...`;
+        return;
+    }
+    
+    // State: Valid targets ready
+    if (state.strat2.validTargets.length > 0) {
+        indicator.style.borderColor = isShadow ? 'var(--purple)' : 'var(--cyan)';
+        title.style.color = isShadow ? 'var(--purple)' : 'var(--cyan)';
+        title.textContent = `${phaseLabel}: 🎯 ${state.strat2.validTargets.join(', ')}`;
+        subtitle.textContent = `Waiting for tap...`;
+        return;
+    }
+    
+    // State: Stabilizing
+    if (state.strat2.stableSince && state.strat2.coldestDigits.length > 0) {
+        const elapsed = ((Date.now() - state.strat2.stableSince) / 1000).toFixed(1);
         indicator.style.borderColor = 'var(--yellow)';
         title.style.color = 'var(--yellow)';
-        title.textContent = `🎯 TRACKING: ${state.strat2.trackedDigit}`;
-        subtitle.textContent = `${state.strat2.trackedFreq.toFixed(1)}% - Waiting for change...`;
-    } else {
-        indicator.style.borderColor = 'var(--green)';
-        title.style.color = 'var(--green)';
-        title.textContent = '👁️ WATCHING';
-        subtitle.textContent = `Looking for coldest digit ≤${strat2Threshold}%`;
+        title.textContent = `${phaseLabel}: ⏳ ${state.strat2.coldestDigits.join(', ')}`;
+        subtitle.textContent = `Stabilizing ${elapsed}s / ${stabilitySeconds}s`;
+        return;
     }
+    
+    // State: Watching
+    indicator.style.borderColor = isShadow ? 'var(--purple)' : 'var(--green)';
+    title.style.color = isShadow ? 'var(--purple)' : 'var(--green)';
+    title.textContent = `${phaseLabel}`;
+    subtitle.textContent = `Looking for coldest < ${threshold}%`;
 }
 
 // Keep old function name for compatibility
