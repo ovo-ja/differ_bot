@@ -1003,16 +1003,17 @@ function handleTick(tick) {
                         if (state.strat2.activeTradeCount >= activeTradesTarget) {
                             const forceActive = document.getElementById('strat2ForceActive').checked;
                             if (forceActive) {
-                                // Untick Force Active and go back to shadow
                                 document.getElementById('strat2ForceActive').checked = false;
-                                log(`🔥 S2 ACTIVE: ${activeTradesTarget}/${activeTradesTarget} complete → Force Active disabled`, 'info');
-                            } else {
-                                log(`🔥 S2 ACTIVE: ${activeTradesTarget}/${activeTradesTarget} complete → Back to Shadow Mode`, 'info');
                             }
-                            state.strat2.phase = 'shadow';
-                            state.strat2.activeTradeCount = 0;
+                            log(`🔥 S2 ACTIVE: ${activeTradesTarget}/${activeTradesTarget} complete → Strategy 2 OFF`, 'trade');
+                            
+                            // Turn off Strategy 2 completely
+                            document.getElementById('strat2Enabled').checked = false;
+                            toggleStrat2();
+                            resetStrat2Full();
+                        } else {
+                            resetStrat2();
                         }
-                        resetStrat2();
                     }
                 }
                 return; // Exit, don't process further
