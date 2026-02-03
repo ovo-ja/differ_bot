@@ -192,6 +192,20 @@
                         <input type="checkbox" id="s1StopOnLoss" checked style="width:auto">Stop on loss
                     </label>
                 </div>
+                
+                <div class="session-limits" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+                    <h4>🔥 Rapid Fire</h4>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <label style="display:flex;align-items:center;gap:4px">
+                            <input type="checkbox" id="s1RapidFire" style="width:auto">
+                            <span style="font-size:9px">Enable</span>
+                        </label>
+                        <div style="flex:1">
+                            <label style="font-size:8px">Trades/Signal</label>
+                            <input type="number" id="s1RapidCount" value="3" min="2" max="5" style="width:100%">
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- STRATEGY 2 -->
@@ -223,6 +237,20 @@
                     <label style="display:flex;align-items:center;gap:4px;margin-top:2px">
                         <input type="checkbox" id="s2StopOnLoss" checked style="width:auto">Stop on loss
                     </label>
+                </div>
+                
+                <div class="session-limits" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+                    <h4>🔥 Rapid Fire</h4>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <label style="display:flex;align-items:center;gap:4px">
+                            <input type="checkbox" id="s2RapidFire" style="width:auto">
+                            <span style="font-size:9px">Enable</span>
+                        </label>
+                        <div style="flex:1">
+                            <label style="font-size:8px">Trades/Signal</label>
+                            <input type="number" id="s2RapidCount" value="3" min="2" max="5" style="width:100%">
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -274,12 +302,17 @@
                     </div>
                 </div>
                 
-                <div class="verdict scouting" id="marketVerdict">🔍 Click SCOUT to analyze market</div>
+                <div class="verdict scouting" id="marketVerdict">Connect and click START to begin</div>
                 
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px">
-                    <button class="btn-purple" onclick="startScout()">🔍 Scout</button>
-                    <button class="btn-green" onclick="startTrading()" id="startTradingBtn" disabled>▶ Trade</button>
-                    <button class="btn-red" onclick="stopTrading()">⏹ Stop</button>
+                <div style="margin-top:8px">
+                    <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:9px">
+                        <input type="checkbox" id="skipScout" style="width:auto">
+                        <span>Skip scout (start trading immediately)</span>
+                    </label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                        <button class="btn-green" onclick="startBot()" id="startBotBtn" style="font-size:12px;padding:10px">🚀 START BOT</button>
+                        <button class="btn-red" onclick="stopBot()" id="stopBotBtn" style="font-size:12px;padding:10px">⏹ STOP</button>
+                    </div>
                 </div>
             </div>
             
@@ -383,13 +416,13 @@
                 <h3>🎚️ Scanner Thresholds</h3>
                 <div style="font-size:8px;color:var(--cyan);margin-bottom:2px">Strategy 1</div>
                 <div class="row">
-                    <div><label>Max Triple/min</label><input type="number" id="scannerS1TripleMax" value="2.0" step="0.5"></div>
+                    <div><label>Max Triple/min</label><input type="number" id="scannerS1TripleMax" value="2.5" step="0.5"></div>
                     <div><label>Max D→T %</label><input type="number" id="scannerS1DTMax" value="25"></div>
                 </div>
                 <div style="font-size:8px;color:var(--green);margin:4px 0 2px">Strategy 2</div>
                 <div class="row">
-                    <div><label>Min Stability %</label><input type="number" id="scannerS2StabilityMin" value="70"></div>
-                    <div><label>Max Spike %</label><input type="number" id="scannerS2SpikeMax" value="20"></div>
+                    <div><label>Min Stability %</label><input type="number" id="scannerS2StabilityMin" value="50"></div>
+                    <div><label>Max Spike %</label><input type="number" id="scannerS2SpikeMax" value="30"></div>
                 </div>
             </div>
             
@@ -424,6 +457,10 @@ const state = {
     isTrading: false, isPaused: false, pauseReason: '',
     lastPriceDigit: null, consecutiveCount: 1,
     currentTradeDigit: null, currentTradeStrategy: null, currentTradeFreq: null,
+    
+    // Bot automation
+    botPhase: 'idle', // 'idle', 'waiting_ticks', 'scouting', 'trading'
+    autoMode: false,
     
     s1: { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false },
     s2: { coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, waitingConfirm: false, confirmDigit: null, limitReached: false },
@@ -532,6 +569,9 @@ function processTick(tick) {
     document.getElementById('lastDigitDisplay').textContent = digit;
     document.getElementById('tickCount').textContent = Math.min(state.ticks.length, ticksToAnalyze) + ' ticks';
     
+    // Check if bot should auto-progress
+    checkAutoProgress();
+    
     const isDouble = (digit === state.lastPriceDigit);
     state.consecutiveCount = isDouble ? state.consecutiveCount + 1 : 1;
     const isTriple = (state.consecutiveCount === 3);
@@ -635,8 +675,8 @@ function updateScannerMetrics(digit, freqs, isDouble, isTriple) {
 }
 
 function calculateHealthScores() {
-    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
-    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 70, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 20;
+    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
+    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 50, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
     
     state.scanner.s1Health = Math.round((Math.max(0, 100 - state.scanner.tripleRate / s1tm * 50) + Math.max(0, 100 - state.scanner.doubleToTripleRate / s1dm * 50)) / 2);
     state.scanner.s1Healthy = state.scanner.tripleRate <= s1tm && state.scanner.doubleToTripleRate <= s1dm;
@@ -651,8 +691,8 @@ function updateScannerUI() {
     document.getElementById('s2Stability').textContent = state.scanner.coldestStability.toFixed(0) + '%';
     document.getElementById('s2Spike').textContent = state.scanner.coldSpikeRate.toFixed(0) + '%';
     
-    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
-    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 70, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 20;
+    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
+    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 50, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
     
     setMetricClass('s1TripleRateBox', state.scanner.tripleRate <= s1tm * 0.7 ? 'good' : (state.scanner.tripleRate <= s1tm ? 'caution' : 'bad'));
     setMetricClass('s1DoubleTripleBox', state.scanner.doubleToTripleRate <= s1dm * 0.7 ? 'good' : (state.scanner.doubleToTripleRate <= s1dm ? 'caution' : 'bad'));
@@ -689,7 +729,7 @@ function checkMarketHealth() {
     if (s1e && s1ns && !state.scanner.s1Healthy && !state.s1.limitReached) { shouldPause = true; reason = 'S1 unhealthy'; }
     if (s2e && s2ns && !state.scanner.s2Healthy && !state.s2.limitReached) { reason = shouldPause ? 'S1 & S2 unhealthy' : 'S2 unhealthy'; shouldPause = true; }
     
-    if ((!s1e || state.s1.limitReached) && (!s2e || state.s2.limitReached)) { stopTrading(); log('🎯 All limits reached!', 'win'); return; }
+    if ((!s1e || state.s1.limitReached) && (!s2e || state.s2.limitReached)) { stopBot(); log('🎯 All limits reached!', 'win'); return; }
     
     if (shouldPause && !state.isPaused) { state.isPaused = true; state.pauseReason = reason; log(`⏸️ PAUSED: ${reason}`, 'scanner'); document.getElementById('tradingStatusCard').classList.add('paused'); document.getElementById('tradingStatusTitle').textContent = '⏸️ PAUSED'; }
     else if (!shouldPause && state.isPaused) { state.isPaused = false; state.pauseReason = ''; log('▶️ RESUMED', 'scanner'); document.getElementById('tradingStatusCard').classList.remove('paused'); document.getElementById('tradingStatusTitle').textContent = '📈 TRADING'; }
@@ -734,7 +774,6 @@ function finishScout() {
     
     document.getElementById('marketVerdict').className = 'verdict ' + cls;
     document.getElementById('marketVerdict').innerHTML = txt;
-    document.getElementById('startTradingBtn').disabled = false;
     log(`🔍 Scout done: S1=${state.scanner.s1Health}% S2=${state.scanner.s2Health}%`, 'scanner');
 }
 
@@ -767,11 +806,129 @@ function startTrading() {
 
 function stopTrading() {
     state.isTrading = false; state.isPaused = false;
+    state.botPhase = 'idle'; state.autoMode = false;
     document.getElementById('tradingStatusCard').style.display = 'none';
     document.getElementById('scannerStatus').textContent = 'STOPPED';
     document.getElementById('marketVerdict').className = 'verdict scouting';
-    document.getElementById('marketVerdict').innerHTML = '⏹ Stopped - Scout to restart';
+    document.getElementById('marketVerdict').innerHTML = '⏹ Stopped - Click START to begin';
+    document.getElementById('startBotBtn').disabled = false;
     log('⏹ Stopped', 'info');
+}
+
+// AUTOMATED BOT CONTROL
+function startBot() {
+    if (!state.connected) return log('Connect first!', 'loss');
+    if (!document.getElementById('strat1Enabled').checked && !document.getElementById('strat2Enabled').checked) return log('Enable a strategy!', 'loss');
+    
+    state.autoMode = true;
+    state.botPhase = 'waiting_ticks';
+    document.getElementById('startBotBtn').disabled = true;
+    
+    const ticksNeeded = parseInt(document.getElementById('ticksToAnalyze').value) || 100;
+    
+    if (state.ticks.length >= ticksNeeded) {
+        // Already have enough ticks, proceed to scout or trade
+        if (document.getElementById('skipScout').checked) {
+            proceedToTrading();
+        } else {
+            proceedToScout();
+        }
+    } else {
+        // Wait for ticks
+        document.getElementById('marketVerdict').className = 'verdict scouting';
+        document.getElementById('marketVerdict').innerHTML = `⏳ Collecting ticks... ${state.ticks.length}/${ticksNeeded}`;
+        log(`🚀 Bot started - waiting for ${ticksNeeded} ticks`, 'info');
+    }
+}
+
+function stopBot() {
+    stopTrading();
+    state.scanner.isScoutPhase = false;
+    document.getElementById('scoutProgress').style.display = 'none';
+}
+
+function checkAutoProgress() {
+    if (!state.autoMode) return;
+    
+    const ticksNeeded = parseInt(document.getElementById('ticksToAnalyze').value) || 100;
+    
+    if (state.botPhase === 'waiting_ticks') {
+        document.getElementById('marketVerdict').innerHTML = `⏳ Collecting ticks... ${state.ticks.length}/${ticksNeeded}`;
+        
+        if (state.ticks.length >= ticksNeeded) {
+            if (document.getElementById('skipScout').checked) {
+                proceedToTrading();
+            } else {
+                proceedToScout();
+            }
+        }
+    }
+}
+
+function proceedToScout() {
+    state.botPhase = 'scouting';
+    state.scanner.isScoutPhase = true;
+    state.scanner.scoutStartTime = Date.now();
+    state.scanner.recentTriples = []; state.scanner.recentDoubles = [];
+    state.scanner.coldestHistory = []; state.scanner.coldAppearances = [];
+    
+    document.getElementById('scoutProgress').style.display = 'block';
+    document.getElementById('scannerStatus').textContent = 'SCOUTING...';
+    document.getElementById('marketVerdict').className = 'verdict scouting';
+    document.getElementById('marketVerdict').innerHTML = '🔍 Auto-scouting market...';
+    log('🔍 Auto-scout started', 'scanner');
+    updateAutoScoutProgress();
+}
+
+function updateAutoScoutProgress() {
+    if (!state.scanner.isScoutPhase || !state.autoMode) return;
+    
+    const elapsed = Date.now() - state.scanner.scoutStartTime;
+    const pct = Math.min(100, elapsed / state.scanner.scoutDuration * 100);
+    document.getElementById('scoutFill').style.width = pct + '%';
+    const s = Math.floor(elapsed / 1000);
+    document.getElementById('scoutTime').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+    document.getElementById('marketVerdict').innerHTML = `🔍 Auto-scouting... ${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')} / 2:00`;
+    
+    if (elapsed >= state.scanner.scoutDuration) {
+        finishAutoScout();
+    } else {
+        setTimeout(updateAutoScoutProgress, 500);
+    }
+}
+
+function finishAutoScout() {
+    state.scanner.isScoutPhase = false;
+    document.getElementById('scoutProgress').style.display = 'none';
+    log(`🔍 Auto-scout done: S1=${state.scanner.s1Health}% S2=${state.scanner.s2Health}%`, 'scanner');
+    
+    // Automatically proceed to trading
+    proceedToTrading();
+}
+
+function proceedToTrading() {
+    state.botPhase = 'trading';
+    
+    state.isTrading = true; state.isPaused = false; state.pauseReason = '';
+    state.s1 = { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false };
+    state.s2 = { coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, waitingConfirm: false, confirmDigit: null, limitReached: false };
+    state.simulated = { 
+        s1Trades: [], s2Trades: [], 
+        s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
+        s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 },
+        s1State: { phase: 1, tradeCount: 0, cooldownUntil: null },
+        s2State: { stableSince: null, isStable: false, lastColdest: null, waitingConfirm: false, confirmDigit: null },
+        pendingS1: null,
+        pendingS2: null
+    };
+    updateSimulatedUI();
+    state.session.startTime = Date.now(); state.session.healthyTicks = 0; state.session.totalTicks = 0;
+    
+    document.getElementById('tradingStatusCard').style.display = 'block';
+    document.getElementById('tradingStatusTitle').textContent = '📈 TRADING';
+    document.getElementById('scannerStatus').textContent = 'LIVE';
+    log('▶️ Auto-trading started', 'trade');
+    updateTradingStatus(); updateMarketVerdict();
 }
 
 function updateTradingStatus() {
@@ -1079,8 +1236,24 @@ function placeTrade(digit, freq, strategy) {
     const stake = parseFloat(document.getElementById('stake').value) || 10;
     state.currentTradeDigit = digit; state.currentTradeStrategy = strategy; state.currentTradeFreq = freq;
     
-    state.ws.send(JSON.stringify({ buy: 1, price: stake, parameters: { amount: stake, basis: 'stake', contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, duration_unit: 't', symbol: document.getElementById('symbol').value, barrier: digit.toString() } }));
-    log(`📤 ${strategy}: DIFFERS D${digit} @ $${stake}`, 'trade');
+    // Check for rapid fire
+    let tradeCount = 1;
+    if (strategy === 'S1' && document.getElementById('s1RapidFire').checked) {
+        tradeCount = parseInt(document.getElementById('s1RapidCount').value) || 3;
+    } else if (strategy === 'S2' && document.getElementById('s2RapidFire').checked) {
+        tradeCount = parseInt(document.getElementById('s2RapidCount').value) || 3;
+    }
+    
+    // Place multiple trades if rapid fire enabled
+    for (let i = 0; i < tradeCount; i++) {
+        state.ws.send(JSON.stringify({ buy: 1, price: stake, parameters: { amount: stake, basis: 'stake', contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, duration_unit: 't', symbol: document.getElementById('symbol').value, barrier: digit.toString() } }));
+    }
+    
+    if (tradeCount > 1) {
+        log(`📤 ${strategy}: 🔥 RAPID ${tradeCount}x DIFFERS D${digit} @ $${stake}`, 'trade');
+    } else {
+        log(`📤 ${strategy}: DIFFERS D${digit} @ $${stake}`, 'trade');
+    }
 }
 
 function processTradeResult(contract) {
@@ -1159,7 +1332,7 @@ function download(content, filename, type) {
 function ts() { return new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_'); }
 
 log('🎯 DIFFERS Bot v7 loaded', 'info');
-log('📊 Connect → Scout → Trade', 'info');
+log('📊 Connect → Click START → Auto-trade', 'info');
 </script>
 </body>
 </html>
