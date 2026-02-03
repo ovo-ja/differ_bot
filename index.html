@@ -244,12 +244,20 @@
                                 <div style="font-size:9px;color:var(--orange);font-weight:600;margin-bottom:6px">🔥 Phase 2: Trade Doubles</div>
                                 <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
                                     <span style="font-size:9px;color:var(--muted)">Threshold ≤</span>
-                                    <input type="number" id="doubleColdThreshold" value="7" min="1" max="15" step="0.5" style="width:45px;padding:2px;margin:0;font-size:10px">
+                                    <input type="number" id="doubleColdThreshold" value="8" min="1" max="15" step="0.5" style="width:45px;padding:2px;margin:0;font-size:10px">
                                     <span style="font-size:8px;color:var(--muted)">%</span>
                                 </div>
-                                <div style="display:flex;align-items:center;gap:4px">
+                                <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
                                     <span style="font-size:9px;color:var(--muted)">Trades/cycle:</span>
-                                    <input type="number" id="tradesPerCycle" value="5" min="1" max="20" style="width:45px;padding:2px;margin:0;font-size:10px">
+                                    <input type="number" id="tradesPerCycle" value="3" min="1" max="20" style="width:45px;padding:2px;margin:0;font-size:10px">
+                                </div>
+                                <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+                                    <span style="font-size:9px;color:var(--muted)">Triple cooldown:</span>
+                                    <input type="number" id="tripleCooldown" value="5" min="0" max="30" style="width:45px;padding:2px;margin:0;font-size:10px">
+                                    <span style="font-size:8px;color:var(--muted)">sec</span>
+                                </div>
+                                <div style="font-size:8px;color:var(--muted);margin-top:4px">
+                                    ⚠️ Pause Phase 2 after ANY triple
                                 </div>
                             </div>
                         </div>
@@ -498,6 +506,7 @@ const state = {
     phase2TradeResults: [],   // Results of trades in current cycle ['win', 'loss', ...]
     cyclesCompleted: 0,       // Total cycles completed
     triplesCaught: 0,         // Total triples that triggered Phase 2
+    tripleCooldownUntil: null, // Timestamp when triple cooldown expires
     
     // LOWEST CONFIDENCE + CONFIRM (Strategy 2)
     strat2: {
@@ -819,6 +828,13 @@ function handleTick(tick) {
         document.getElementById(`digit-${digit}`).classList.add('tripled');
         document.getElementById(`status-${digit}`).textContent = '🔥🔥🔥 TRIPLED!';
         log(`🔥🔥🔥 TRIPLE: Digit ${digit} appeared 3x! Freq: ${digitFreq.toFixed(1)}%${coldStatus}`, 'alert');
+        
+        // Set triple cooldown for Strategy 1 Phase 2
+        const tripleCooldownSec = parseInt(document.getElementById('tripleCooldown').value) || 5;
+        if (tripleCooldownSec > 0 && state.currentPhase === 2) {
+            state.tripleCooldownUntil = Date.now() + (tripleCooldownSec * 1000);
+            log(`⏸️ S1: Triple detected! Phase 2 paused for ${tripleCooldownSec}s`, 'alert');
+        }
     } else if (isDouble) {
         // DOUBLE DETECTED!
         const coldStatus = digitFreq <= doubleColdThreshold ? ` ❄️ (≤${doubleColdThreshold}%)` : '';
@@ -915,13 +931,23 @@ function handleTick(tick) {
                     updateAutoStatus();
                     updateStrat1Indicator();
                 }
-                // Normal Double + Cold trade
+                // Normal Double + Cold trade (check cooldown first)
                 else if (isDouble && digitFreq <= doubleColdThreshold && state.phase2TradeCount < tradesPerCycle) {
-                    log(`🔔 S1 Phase2 (${state.phase2TradeCount + 1}/${tradesPerCycle}): Double+Cold (${digitFreq.toFixed(1)}%)! Digit ${digit}`, 'trade');
-                    
-                    state.currentTarget = digit;
-                    triggerTwoPhaseDoubleTrade(digit, digitFreq);
-                    return; // Exit to prevent Strategy 2 from also trading
+                    // Check triple cooldown
+                    if (state.tripleCooldownUntil && Date.now() < state.tripleCooldownUntil) {
+                        const remaining = ((state.tripleCooldownUntil - Date.now()) / 1000).toFixed(1);
+                        log(`⏸️ S1: Skipping Double (cooldown ${remaining}s remaining)`, 'info');
+                    } else {
+                        // Clear expired cooldown
+                        if (state.tripleCooldownUntil && Date.now() >= state.tripleCooldownUntil) {
+                            state.tripleCooldownUntil = null;
+                        }
+                        log(`🔔 S1 Phase2 (${state.phase2TradeCount + 1}/${tradesPerCycle}): Double+Cold (${digitFreq.toFixed(1)}%)! Digit ${digit}`, 'trade');
+                        
+                        state.currentTarget = digit;
+                        triggerTwoPhaseDoubleTrade(digit, digitFreq);
+                        return; // Exit to prevent Strategy 2 from also trading
+                    }
                 }
             }
         }
@@ -1273,6 +1299,7 @@ function startAuto() {
     state.currentPhase = 1;
     state.phase2TradeCount = 0;
     state.phase2TradeResults = [];
+    state.tripleCooldownUntil = null;
     
     // Reset Strategy 2 state (full reset including phase)
     resetStrat2Full();
@@ -1285,9 +1312,10 @@ function startAuto() {
         const quintThreshold = parseFloat(document.getElementById('quintThreshold').value) || 11;
         const doubleColdThreshold = parseFloat(document.getElementById('doubleColdThreshold').value) || 7;
         const tradesPerCycle = parseInt(document.getElementById('tradesPerCycle').value) || 5;
+        const tripleCooldown = parseInt(document.getElementById('tripleCooldown').value) || 5;
         
         log(`📍 S1: Detect 3x≤${tripleThreshold}% | 4x≤${quadThreshold}% | 5x≤${quintThreshold}%`, 'info');
-        log(`🔥 S1: Trade Double+Cold (≤${doubleColdThreshold}%) x${tradesPerCycle}`, 'info');
+        log(`🔥 S1: Trade Double+Cold (≤${doubleColdThreshold}%) x${tradesPerCycle} | Cooldown: ${tripleCooldown}s`, 'info');
     }
     
     if (strat2Enabled) {
@@ -1432,6 +1460,7 @@ function triggerTwoPhaseDoubleTrade(digit, freq) {
             state.currentPhase = 1;
             state.phase2TradeCount = 0;
             state.phase2TradeResults = [];
+            state.tripleCooldownUntil = null; // Reset cooldown
         }
         
         if (state.autoRunning) {
@@ -1541,10 +1570,21 @@ function updateStrat1Indicator() {
         subtitle.textContent = `Detect: 3x≤${tripleThreshold}% | 4x≤${quadThreshold}% | 5x≤${quintThreshold}%`;
         counter.style.display = 'none';
     } else {
-        indicator.style.borderColor = 'var(--orange)';
-        title.style.color = 'var(--orange)';
-        title.textContent = '🔥 PHASE 2';
-        subtitle.textContent = `Trading Double+Cold (≤${doubleColdThreshold}%)`;
+        // Check for cooldown
+        const inCooldown = state.tripleCooldownUntil && Date.now() < state.tripleCooldownUntil;
+        
+        if (inCooldown) {
+            const remaining = ((state.tripleCooldownUntil - Date.now()) / 1000).toFixed(1);
+            indicator.style.borderColor = 'var(--red)';
+            title.style.color = 'var(--red)';
+            title.textContent = '⏸️ PHASE 2 PAUSED';
+            subtitle.textContent = `Triple cooldown: ${remaining}s`;
+        } else {
+            indicator.style.borderColor = 'var(--orange)';
+            title.style.color = 'var(--orange)';
+            title.textContent = '🔥 PHASE 2';
+            subtitle.textContent = `Trading Double+Cold (≤${doubleColdThreshold}%)`;
+        }
         counter.style.display = 'block';
         
         // Build trade dots
