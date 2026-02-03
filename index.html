@@ -156,6 +156,15 @@
                 </div>
                 <label>Ticks to Analyze</label>
                 <input type="number" id="ticksToAnalyze" value="100" min="30" max="500">
+                
+                <div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:6px;border:1px solid var(--purple)">
+                    <label style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                        <input type="checkbox" id="backgroundMode" style="width:auto">
+                        <span style="font-size:10px;font-weight:600;color:var(--purple)">📱 Background Mode (Mobile)</span>
+                    </label>
+                    <div style="font-size:8px;color:var(--muted)">Plays silent audio to keep bot running when phone is locked</div>
+                    <div id="backgroundStatus" style="font-size:9px;color:var(--green);margin-top:4px;display:none">🔊 Keep-alive active</div>
+                </div>
             </div>
             
             <!-- STRATEGY 1 -->
@@ -175,7 +184,7 @@
                 
                 <div class="row">
                     <div><label>Triple ≤%</label><input type="number" id="tripleThreshold" value="7" step="0.5"></div>
-                    <div><label>Double ≤%</label><input type="number" id="doubleColdThreshold" value="8" step="0.5"></div>
+                    <div><label>Double ≤%</label><input type="number" id="doubleColdThreshold" value="7" step="0.5"></div>
                 </div>
                 <div class="row">
                     <div><label>Trades/Cycle</label><input type="number" id="tradesPerCycle" value="3" min="1" max="10"></div>
@@ -194,7 +203,7 @@
                 </div>
                 
                 <div class="session-limits" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
-                    <h4>🔥 Rapid Fire</h4>
+                    <h4>🔥 Rapid Fire <span style="color:var(--red);font-size:7px">⚠️ RISKY</span></h4>
                     <div style="display:flex;align-items:center;gap:8px">
                         <label style="display:flex;align-items:center;gap:4px">
                             <input type="checkbox" id="s1RapidFire" style="width:auto">
@@ -202,9 +211,10 @@
                         </label>
                         <div style="flex:1">
                             <label style="font-size:8px">Trades/Signal</label>
-                            <input type="number" id="s1RapidCount" value="3" min="2" max="5" style="width:100%">
+                            <input type="number" id="s1RapidCount" value="2" min="2" max="5" style="width:100%">
                         </div>
                     </div>
+                    <div style="font-size:7px;color:var(--red);margin-top:2px">Amplifies losses - use with caution</div>
                 </div>
             </div>
             
@@ -228,6 +238,11 @@
                     <div><label>Stability (s)</label><input type="number" id="strat2Stability" value="3" min="1"></div>
                 </div>
                 
+                <div class="row">
+                    <div><label>Digit Cooldown (s)</label><input type="number" id="s2DigitCooldown" value="10" min="0"></div>
+                    <div><label>Max/Digit</label><input type="number" id="s2MaxPerDigit" value="2" min="1" max="5"></div>
+                </div>
+                
                 <div class="session-limits">
                     <h4>🎯 Session Limits</h4>
                     <div class="row">
@@ -240,7 +255,7 @@
                 </div>
                 
                 <div class="session-limits" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
-                    <h4>🔥 Rapid Fire</h4>
+                    <h4>🔥 Rapid Fire <span style="color:var(--red);font-size:7px">⚠️ RISKY</span></h4>
                     <div style="display:flex;align-items:center;gap:8px">
                         <label style="display:flex;align-items:center;gap:4px">
                             <input type="checkbox" id="s2RapidFire" style="width:auto">
@@ -248,9 +263,10 @@
                         </label>
                         <div style="flex:1">
                             <label style="font-size:8px">Trades/Signal</label>
-                            <input type="number" id="s2RapidCount" value="3" min="2" max="5" style="width:100%">
+                            <input type="number" id="s2RapidCount" value="2" min="2" max="5" style="width:100%">
                         </div>
                     </div>
+                    <div style="font-size:7px;color:var(--red);margin-top:2px">Amplifies losses - use with caution</div>
                 </div>
             </div>
             
@@ -421,7 +437,7 @@
                 </div>
                 <div style="font-size:8px;color:var(--green);margin:4px 0 2px">Strategy 2</div>
                 <div class="row">
-                    <div><label>Min Stability %</label><input type="number" id="scannerS2StabilityMin" value="50"></div>
+                    <div><label>Min Stability %</label><input type="number" id="scannerS2StabilityMin" value="70"></div>
                     <div><label>Max Spike %</label><input type="number" id="scannerS2SpikeMax" value="30"></div>
                 </div>
             </div>
@@ -463,7 +479,15 @@ const state = {
     autoMode: false,
     
     s1: { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false },
-    s2: { coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, waitingConfirm: false, confirmDigit: null, limitReached: false },
+    s2: { 
+        coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, 
+        sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, 
+        waitingConfirm: false, confirmDigit: null, limitReached: false,
+        // Safety features
+        digitCooldowns: {}, // { digit: cooldownUntilTimestamp }
+        digitTradeCount: {}, // { digit: count }
+        recentDigitAppearances: [] // [{ digit, time }] - for "going hot" detection
+    },
     
     scanner: {
         isScoutPhase: false, scoutStartTime: null, scoutDuration: 120000,
@@ -676,7 +700,7 @@ function updateScannerMetrics(digit, freqs, isDouble, isTriple) {
 
 function calculateHealthScores() {
     const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
-    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 50, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
+    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 70, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
     
     state.scanner.s1Health = Math.round((Math.max(0, 100 - state.scanner.tripleRate / s1tm * 50) + Math.max(0, 100 - state.scanner.doubleToTripleRate / s1dm * 50)) / 2);
     state.scanner.s1Healthy = state.scanner.tripleRate <= s1tm && state.scanner.doubleToTripleRate <= s1dm;
@@ -692,7 +716,7 @@ function updateScannerUI() {
     document.getElementById('s2Spike').textContent = state.scanner.coldSpikeRate.toFixed(0) + '%';
     
     const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
-    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 50, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
+    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 70, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
     
     setMetricClass('s1TripleRateBox', state.scanner.tripleRate <= s1tm * 0.7 ? 'good' : (state.scanner.tripleRate <= s1tm ? 'caution' : 'bad'));
     setMetricClass('s1DoubleTripleBox', state.scanner.doubleToTripleRate <= s1dm * 0.7 ? 'good' : (state.scanner.doubleToTripleRate <= s1dm ? 'caution' : 'bad'));
@@ -768,8 +792,16 @@ function finishScout() {
     document.getElementById('scoutProgress').style.display = 'none';
     document.getElementById('scannerStatus').textContent = 'READY';
     
+    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5;
+    const isExtremelyVolatile = state.scanner.tripleRate >= s1tm * 3;
+    
     let cls = 'good', txt = '✅ MARKET HEALTHY';
-    if (!state.scanner.s1Healthy && !state.scanner.s2Healthy) { cls = 'bad'; txt = '❌ MARKET UNHEALTHY'; }
+    if (isExtremelyVolatile) { 
+        cls = 'bad'; 
+        txt = `⚠️ EXTREMELY VOLATILE (${state.scanner.tripleRate.toFixed(1)} triples/min)`; 
+        log(`⚠️ Market extremely volatile! Triple rate ${state.scanner.tripleRate.toFixed(1)}/min is ${(state.scanner.tripleRate/s1tm).toFixed(1)}x over threshold`, 'alert');
+    }
+    else if (!state.scanner.s1Healthy && !state.scanner.s2Healthy) { cls = 'bad'; txt = '❌ MARKET UNHEALTHY'; }
     else if (!state.scanner.s1Healthy || !state.scanner.s2Healthy) { cls = 'caution'; txt = '🟡 PARTIAL - ' + (state.scanner.s1Healthy ? 'S1 OK' : 'S2 OK'); }
     
     document.getElementById('marketVerdict').className = 'verdict ' + cls;
@@ -784,7 +816,12 @@ function startTrading() {
     
     state.isTrading = true; state.isPaused = false; state.pauseReason = '';
     state.s1 = { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false };
-    state.s2 = { coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, waitingConfirm: false, confirmDigit: null, limitReached: false };
+    state.s2 = { 
+        coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, 
+        sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, 
+        waitingConfirm: false, confirmDigit: null, limitReached: false,
+        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
+    };
     state.simulated = { 
         s1Trades: [], s2Trades: [], 
         s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
@@ -802,6 +839,9 @@ function startTrading() {
     document.getElementById('scannerStatus').textContent = 'LIVE';
     log('▶️ Trading started', 'trade');
     updateTradingStatus(); updateMarketVerdict();
+    
+    // Start background mode if enabled
+    startBackgroundMode();
 }
 
 function stopTrading() {
@@ -812,6 +852,7 @@ function stopTrading() {
     document.getElementById('marketVerdict').className = 'verdict scouting';
     document.getElementById('marketVerdict').innerHTML = '⏹ Stopped - Click START to begin';
     document.getElementById('startBotBtn').disabled = false;
+    stopBackgroundMode();
     log('⏹ Stopped', 'info');
 }
 
@@ -843,6 +884,7 @@ function startBot() {
 
 function stopBot() {
     stopTrading();
+    stopBackgroundMode();
     state.scanner.isScoutPhase = false;
     document.getElementById('scoutProgress').style.display = 'none';
 }
@@ -900,6 +942,14 @@ function updateAutoScoutProgress() {
 function finishAutoScout() {
     state.scanner.isScoutPhase = false;
     document.getElementById('scoutProgress').style.display = 'none';
+    
+    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5;
+    const isExtremelyVolatile = state.scanner.tripleRate >= s1tm * 3;
+    
+    if (isExtremelyVolatile) {
+        log(`⚠️ Market extremely volatile! Triple rate ${state.scanner.tripleRate.toFixed(1)}/min is ${(state.scanner.tripleRate/s1tm).toFixed(1)}x over threshold`, 'alert');
+    }
+    
     log(`🔍 Auto-scout done: S1=${state.scanner.s1Health}% S2=${state.scanner.s2Health}%`, 'scanner');
     
     // Automatically proceed to trading
@@ -911,7 +961,12 @@ function proceedToTrading() {
     
     state.isTrading = true; state.isPaused = false; state.pauseReason = '';
     state.s1 = { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false };
-    state.s2 = { coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, waitingConfirm: false, confirmDigit: null, limitReached: false };
+    state.s2 = { 
+        coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, 
+        sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, 
+        waitingConfirm: false, confirmDigit: null, limitReached: false,
+        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
+    };
     state.simulated = { 
         s1Trades: [], s2Trades: [], 
         s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
@@ -929,6 +984,9 @@ function proceedToTrading() {
     document.getElementById('scannerStatus').textContent = 'LIVE';
     log('▶️ Auto-trading started', 'trade');
     updateTradingStatus(); updateMarketVerdict();
+    
+    // Start background mode if enabled
+    startBackgroundMode();
 }
 
 function updateTradingStatus() {
@@ -989,6 +1047,8 @@ function processS2(digit, freqs) {
     const mode = document.querySelector('input[name="s2EntryMode"]:checked').value;
     const ct = parseFloat(document.getElementById('strat2Threshold').value) || 6;
     const ss = parseFloat(document.getElementById('strat2Stability').value) || 3;
+    const digitCooldown = parseInt(document.getElementById('s2DigitCooldown').value) || 10;
+    const maxPerDigit = parseInt(document.getElementById('s2MaxPerDigit').value) || 2;
     
     if ((mode === 'scanner' || mode === 'both') && !state.scanner.s2Healthy) return;
     
@@ -999,8 +1059,50 @@ function processS2(digit, freqs) {
     else if (state.s2.stableSince) state.s2.isStable = (Date.now() - state.s2.stableSince) / 1000 >= ss;
     state.s2.lastColdest = coldest;
     
+    // Track digit appearances for "going hot" detection
+    const now = Date.now();
+    state.s2.recentDigitAppearances.push({ digit: coldest, time: now });
+    // Keep only last 10 seconds
+    state.s2.recentDigitAppearances = state.s2.recentDigitAppearances.filter(a => now - a.time < 10000);
+    
+    // Check if digit is "going hot" (appeared 4+ times in last 10 seconds)
+    const recentAppearances = state.s2.recentDigitAppearances.filter(a => a.digit === coldest).length;
+    if (recentAppearances >= 4) {
+        if (!state.s2.digitHotWarned || state.s2.digitHotWarned !== coldest) {
+            log(`🔥 S2: D${coldest} going HOT (${recentAppearances}x in 10s) - skipping`, 'alert');
+            state.s2.digitHotWarned = coldest;
+        }
+        state.s2.waitingConfirm = false;
+        return;
+    }
+    
     if (state.s2.waitingConfirm) {
-        if (digit !== state.s2.confirmDigit) { log(`🔔 S2: Confirmed D${state.s2.confirmDigit}`, 'trade'); placeTrade(state.s2.confirmDigit, freqs[state.s2.confirmDigit], 'S2'); }
+        if (digit !== state.s2.confirmDigit) {
+            const confirmDigit = state.s2.confirmDigit;
+            
+            // Check digit cooldown
+            if (state.s2.digitCooldowns[confirmDigit] && now < state.s2.digitCooldowns[confirmDigit]) {
+                const remaining = Math.ceil((state.s2.digitCooldowns[confirmDigit] - now) / 1000);
+                log(`⏳ S2: D${confirmDigit} on cooldown (${remaining}s left)`, 'info');
+                state.s2.waitingConfirm = false; state.s2.confirmDigit = null;
+                return;
+            }
+            
+            // Check max trades per digit
+            const digitCount = state.s2.digitTradeCount[confirmDigit] || 0;
+            if (digitCount >= maxPerDigit) {
+                log(`🚫 S2: D${confirmDigit} max trades reached (${digitCount}/${maxPerDigit})`, 'info');
+                state.s2.waitingConfirm = false; state.s2.confirmDigit = null;
+                return;
+            }
+            
+            log(`🔔 S2: Confirmed D${confirmDigit}`, 'trade');
+            placeTrade(confirmDigit, freqs[confirmDigit], 'S2');
+            
+            // Set cooldown and increment count
+            state.s2.digitCooldowns[confirmDigit] = now + (digitCooldown * 1000);
+            state.s2.digitTradeCount[confirmDigit] = digitCount + 1;
+        }
         else log(`⚠️ S2: D${digit} doubled, cancel`, 'alert');
         state.s2.waitingConfirm = false; state.s2.confirmDigit = null;
         return;
@@ -1330,6 +1432,99 @@ function download(content, filename, type) {
 }
 
 function ts() { return new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_'); }
+
+// BACKGROUND MODE - Silent Audio Keep-Alive
+let audioContext = null;
+let silentOscillator = null;
+let silentGain = null;
+let keepAliveInterval = null;
+
+function startBackgroundMode() {
+    if (!document.getElementById('backgroundMode').checked) return;
+    
+    try {
+        // Create audio context
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create a silent oscillator (frequency too low to hear)
+        silentOscillator = audioContext.createOscillator();
+        silentOscillator.frequency.value = 1; // 1 Hz - inaudible
+        
+        // Create gain node and set to near-silent (not completely 0 to keep audio active)
+        silentGain = audioContext.createGain();
+        silentGain.gain.value = 0.001; // Essentially silent
+        
+        // Connect oscillator -> gain -> output
+        silentOscillator.connect(silentGain);
+        silentGain.connect(audioContext.destination);
+        
+        // Start the oscillator
+        silentOscillator.start();
+        
+        // Also create periodic "pings" to ensure browser stays awake
+        keepAliveInterval = setInterval(() => {
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            // Brief volume bump (still inaudible) to keep audio stream active
+            if (silentGain) {
+                silentGain.gain.setValueAtTime(0.002, audioContext.currentTime);
+                silentGain.gain.setValueAtTime(0.001, audioContext.currentTime + 0.1);
+            }
+        }, 10000); // Every 10 seconds
+        
+        document.getElementById('backgroundStatus').style.display = 'block';
+        log('📱 Background mode enabled - bot will run when phone is locked', 'info');
+        
+    } catch (e) {
+        log('⚠️ Background mode failed: ' + e.message, 'alert');
+    }
+}
+
+function stopBackgroundMode() {
+    try {
+        if (silentOscillator) {
+            silentOscillator.stop();
+            silentOscillator.disconnect();
+            silentOscillator = null;
+        }
+        if (silentGain) {
+            silentGain.disconnect();
+            silentGain = null;
+        }
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
+        if (keepAliveInterval) {
+            clearInterval(keepAliveInterval);
+            keepAliveInterval = null;
+        }
+        document.getElementById('backgroundStatus').style.display = 'none';
+    } catch (e) {
+        console.log('Error stopping background mode:', e);
+    }
+}
+
+// Handle background mode checkbox change
+document.getElementById('backgroundMode').addEventListener('change', function() {
+    if (this.checked && state.isTrading) {
+        startBackgroundMode();
+    } else {
+        stopBackgroundMode();
+    }
+});
+
+// Handle visibility change (when user switches tabs or locks phone)
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden && state.isTrading && document.getElementById('backgroundMode').checked) {
+        // Page is hidden - ensure audio context is running
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        log('📱 Running in background...', 'info');
+    }
+});
 
 log('🎯 DIFFERS Bot v7 loaded', 'info');
 log('📊 Connect → Click START → Auto-trade', 'info');
