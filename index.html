@@ -137,11 +137,20 @@
                     <div><label>Stake ($)</label><input type="number" id="stake" value="10" min="1"></div>
                     <div><label>Symbol</label>
                         <select id="symbol" onchange="changePair()">
-                            <option value="1HZ10V">Vol 10 (1s)</option>
-                            <option value="1HZ25V">Vol 25 (1s)</option>
-                            <option value="1HZ50V">Vol 50 (1s)</option>
-                            <option value="1HZ75V">Vol 75 (1s)</option>
-                            <option value="1HZ100V" selected>Vol 100 (1s)</option>
+                            <optgroup label="Volatility (1s)">
+                                <option value="1HZ10V">Vol 10 (1s)</option>
+                                <option value="1HZ25V">Vol 25 (1s)</option>
+                                <option value="1HZ50V">Vol 50 (1s)</option>
+                                <option value="1HZ75V">Vol 75 (1s)</option>
+                                <option value="1HZ100V" selected>Vol 100 (1s)</option>
+                            </optgroup>
+                            <optgroup label="Jump Indices">
+                                <option value="JD10">Jump 10</option>
+                                <option value="JD25">Jump 25</option>
+                                <option value="JD50">Jump 50</option>
+                                <option value="JD75">Jump 75</option>
+                                <option value="JD100">Jump 100</option>
+                            </optgroup>
                         </select>
                     </div>
                 </div>
@@ -333,6 +342,10 @@
                     </div>
                 </div>
                 
+                <div id="scannerImpact" style="text-align:center;padding:8px;background:var(--bg);border-radius:4px;margin-bottom:6px;display:none">
+                    <div style="font-size:9px;font-weight:700" id="scannerImpactText">Scanner Impact: $0</div>
+                </div>
+                
                 <div class="sim-trades" id="simTradesList">
                     <div style="text-align:center;color:var(--muted);padding:10px;font-size:9px">No simulated trades</div>
                 </div>
@@ -422,7 +435,18 @@ const state = {
         s1Health: 0, s2Health: 0, s1Healthy: false, s2Healthy: false
     },
     
-    simulated: { s1Trades: [], s2Trades: [], s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 } },
+    simulated: { 
+        s1Trades: [], s2Trades: [], 
+        s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
+        s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 },
+        // S1 simulated state (mirrors real S1)
+        s1State: { phase: 1, tradeCount: 0, cooldownUntil: null },
+        // S2 simulated state (mirrors real S2)
+        s2State: { stableSince: null, isStable: false, lastColdest: null, waitingConfirm: false, confirmDigit: null },
+        // Pending simulated trades (to check result on next tick)
+        pendingS1: null, // { digit, freq, time }
+        pendingS2: null  // { digit, freq, time }
+    },
     session: { startTime: null, tickLog: [], tradeLog: [], healthyTicks: 0, totalTicks: 0 },
     
     currentStreak: 0, bestStreak: 0, activityLog: [], totalTrades: 0, totalWins: 0, totalPL: 0
@@ -722,7 +746,15 @@ function startTrading() {
     state.isTrading = true; state.isPaused = false; state.pauseReason = '';
     state.s1 = { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false };
     state.s2 = { coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, waitingConfirm: false, confirmDigit: null, limitReached: false };
-    state.simulated = { s1Trades: [], s2Trades: [], s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 } };
+    state.simulated = { 
+        s1Trades: [], s2Trades: [], 
+        s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
+        s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 },
+        s1State: { phase: 1, tradeCount: 0, cooldownUntil: null },
+        s2State: { stableSince: null, isStable: false, lastColdest: null, waitingConfirm: false, confirmDigit: null },
+        pendingS1: null,
+        pendingS2: null
+    };
     updateSimulatedUI();
     state.session.startTime = Date.now(); state.session.healthyTicks = 0; state.session.totalTicks = 0;
     
@@ -820,43 +852,226 @@ function processS2(digit, freqs) {
     if (state.s2.isStable && digit === coldest) { state.s2.waitingConfirm = true; state.s2.confirmDigit = coldest; log(`👆 S2: Tap D${coldest}`, 'info'); }
 }
 
-// SIMULATED
+// SIMULATED - Mirrors exact S1 and S2 logic
 function processSimulatedTrading(digit, freqs, isDouble, isTriple) {
     const stake = parseFloat(document.getElementById('stake').value) || 10;
+    const PAYOUT_RATE = 0.09649; // 9.649% profit on win
     
+    // First, check for pending simulated trades from previous tick
+    resolvePendingSimulatedTrades(digit, stake, PAYOUT_RATE);
+    
+    // Then process new simulated trades
     if (document.getElementById('strat1Enabled').checked && !state.s1.limitReached) {
-        const dt = parseFloat(document.getElementById('doubleColdThreshold').value) || 8;
-        if (isDouble && freqs[digit] <= dt) {
-            const won = Math.random() > 0.1; // Simulate ~90% WR
-            const profit = won ? stake * 0.9649 : -stake;
-            state.simulated.s1Trades.push({ time: getTimestamp(), strategy: 'S1', digit, freq: freqs[digit].toFixed(1), result: won ? 'WIN' : 'LOSS', profit });
-            state.simulated.s1Summary.trades++; if (won) state.simulated.s1Summary.wins++; else state.simulated.s1Summary.losses++; state.simulated.s1Summary.pl += profit;
-            log(`👻 S1: D${digit} → ${won ? 'WIN' : 'LOSS'}`, 'scanner');
-        }
+        processSimulatedS1(digit, freqs, isDouble, isTriple);
     }
     
     if (document.getElementById('strat2Enabled').checked && !state.s2.limitReached) {
-        const ct = parseFloat(document.getElementById('strat2Threshold').value) || 6;
-        const coldest = freqs.indexOf(Math.min(...freqs));
-        if (digit === coldest && freqs[coldest] <= ct) {
-            const won = Math.random() > 0.1;
-            const profit = won ? stake * 0.9649 : -stake;
-            state.simulated.s2Trades.push({ time: getTimestamp(), strategy: 'S2', digit, freq: freqs[digit].toFixed(1), result: won ? 'WIN' : 'LOSS', profit });
-            state.simulated.s2Summary.trades++; if (won) state.simulated.s2Summary.wins++; else state.simulated.s2Summary.losses++; state.simulated.s2Summary.pl += profit;
-            log(`👻 S2: D${digit} → ${won ? 'WIN' : 'LOSS'}`, 'scanner');
-        }
+        processSimulatedS2(digit, freqs);
     }
+    
     updateSimulatedUI();
 }
 
-function updateSimulatedUI() {
-    document.getElementById('s1SimSummary').textContent = `${state.simulated.s1Summary.wins}W/${state.simulated.s1Summary.losses}L = $${state.simulated.s1Summary.pl.toFixed(0)}`;
-    document.getElementById('s1SimSummary').style.color = state.simulated.s1Summary.pl >= 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('s2SimSummary').textContent = `${state.simulated.s2Summary.wins}W/${state.simulated.s2Summary.losses}L = $${state.simulated.s2Summary.pl.toFixed(0)}`;
-    document.getElementById('s2SimSummary').style.color = state.simulated.s2Summary.pl >= 0 ? 'var(--green)' : 'var(--red)';
+function resolvePendingSimulatedTrades(currentDigit, stake, PAYOUT_RATE) {
+    // Resolve S1 pending trade
+    if (state.simulated.pendingS1) {
+        const pending = state.simulated.pendingS1;
+        const won = currentDigit !== pending.digit; // DIFFERS wins if different
+        const profit = won ? stake * PAYOUT_RATE : -stake;
+        
+        state.simulated.s1Trades.push({
+            time: pending.time,
+            strategy: 'S1',
+            digit: pending.digit,
+            freq: pending.freq,
+            result: won ? 'WIN' : 'LOSS',
+            profit: profit
+        });
+        
+        state.simulated.s1Summary.trades++;
+        if (won) state.simulated.s1Summary.wins++;
+        else state.simulated.s1Summary.losses++;
+        state.simulated.s1Summary.pl += profit;
+        
+        log(`👻 S1 Sim: D${pending.digit} → ${won ? 'WIN' : 'LOSS'} ($${profit.toFixed(2)})`, 'scanner');
+        state.simulated.pendingS1 = null;
+    }
     
-    const all = [...state.simulated.s1Trades, ...state.simulated.s2Trades].slice(-15);
-    document.getElementById('simTradesList').innerHTML = all.length ? all.map(t => `<div class="sim-trade ${t.result.toLowerCase()}"><span>${t.strategy}|D${t.digit}</span><span>${t.result}</span></div>`).join('') : '<div style="text-align:center;color:var(--muted);padding:10px;font-size:9px">No simulated trades</div>';
+    // Resolve S2 pending trade
+    if (state.simulated.pendingS2) {
+        const pending = state.simulated.pendingS2;
+        const won = currentDigit !== pending.digit; // DIFFERS wins if different
+        const profit = won ? stake * PAYOUT_RATE : -stake;
+        
+        state.simulated.s2Trades.push({
+            time: pending.time,
+            strategy: 'S2',
+            digit: pending.digit,
+            freq: pending.freq,
+            result: won ? 'WIN' : 'LOSS',
+            profit: profit
+        });
+        
+        state.simulated.s2Summary.trades++;
+        if (won) state.simulated.s2Summary.wins++;
+        else state.simulated.s2Summary.losses++;
+        state.simulated.s2Summary.pl += profit;
+        
+        log(`👻 S2 Sim: D${pending.digit} → ${won ? 'WIN' : 'LOSS'} ($${profit.toFixed(2)})`, 'scanner');
+        state.simulated.pendingS2 = null;
+    }
+}
+
+function processSimulatedS1(digit, freqs, isDouble, isTriple) {
+    const mode = document.querySelector('input[name="s1EntryMode"]:checked').value;
+    const tt = parseFloat(document.getElementById('tripleThreshold').value) || 7;
+    const dt = parseFloat(document.getElementById('doubleColdThreshold').value) || 8;
+    const tpc = parseInt(document.getElementById('tradesPerCycle').value) || 3;
+    const cd = parseInt(document.getElementById('tripleCooldown').value) || 5;
+    
+    const simState = state.simulated.s1State;
+    
+    // Phase 1: Wait for cold triple (unless scanner-only mode)
+    if (mode !== 'scanner' && simState.phase === 1) {
+        if (isTriple && freqs[digit] <= tt) {
+            simState.phase = 2;
+            simState.tradeCount = 0;
+            log(`👻 S1 Sim: Cold triple → Phase 2`, 'scanner');
+        }
+        return;
+    }
+    
+    // Scanner mode starts in Phase 2
+    if (mode === 'scanner' && simState.phase === 1) {
+        simState.phase = 2;
+    }
+    
+    // Phase 2: Trade on cold doubles
+    if (simState.phase === 2) {
+        // Triple triggers cooldown
+        if (isTriple) {
+            simState.cooldownUntil = Date.now() + cd * 1000;
+            log(`👻 S1 Sim: Triple! Cooldown ${cd}s`, 'scanner');
+            return;
+        }
+        
+        // Check cooldown
+        if (simState.cooldownUntil && Date.now() < simState.cooldownUntil) {
+            return;
+        }
+        
+        // Trade on cold double
+        if (isDouble && freqs[digit] <= dt && simState.tradeCount < tpc && !state.simulated.pendingS1) {
+            log(`👻 S1 Sim: Placing on D${digit} (${freqs[digit].toFixed(1)}%)`, 'scanner');
+            state.simulated.pendingS1 = {
+                digit: digit,
+                freq: freqs[digit].toFixed(1),
+                time: getTimestamp()
+            };
+            simState.tradeCount++;
+        }
+        
+        // Check cycle complete
+        if (simState.tradeCount >= tpc) {
+            if (mode === 'scanner') {
+                simState.tradeCount = 0;
+            } else {
+                simState.phase = 1;
+                simState.tradeCount = 0;
+                log(`👻 S1 Sim: Cycle complete`, 'scanner');
+            }
+        }
+    }
+}
+
+function processSimulatedS2(digit, freqs) {
+    const mode = document.querySelector('input[name="s2EntryMode"]:checked').value;
+    const ct = parseFloat(document.getElementById('strat2Threshold').value) || 6;
+    const ss = parseFloat(document.getElementById('strat2Stability').value) || 3;
+    
+    const simState = state.simulated.s2State;
+    
+    const coldest = freqs.indexOf(Math.min(...freqs));
+    const coldFreq = freqs[coldest];
+    
+    // Reset if not cold enough
+    if (coldFreq > ct) {
+        simState.stableSince = null;
+        simState.isStable = false;
+        simState.waitingConfirm = false;
+        return;
+    }
+    
+    // Track stability
+    if (coldest !== simState.lastColdest) {
+        simState.stableSince = Date.now();
+        simState.isStable = false;
+    } else if (simState.stableSince) {
+        simState.isStable = (Date.now() - simState.stableSince) / 1000 >= ss;
+    }
+    simState.lastColdest = coldest;
+    
+    // Waiting for confirmation
+    if (simState.waitingConfirm) {
+        if (digit !== simState.confirmDigit) {
+            // Different digit - place trade!
+            if (!state.simulated.pendingS2) {
+                log(`👻 S2 Sim: Confirmed! Placing on D${simState.confirmDigit}`, 'scanner');
+                state.simulated.pendingS2 = {
+                    digit: simState.confirmDigit,
+                    freq: freqs[simState.confirmDigit].toFixed(1),
+                    time: getTimestamp()
+                };
+            }
+        } else {
+            // Same digit doubled - cancel
+            log(`👻 S2 Sim: D${digit} doubled, cancel`, 'scanner');
+        }
+        simState.waitingConfirm = false;
+        simState.confirmDigit = null;
+        return;
+    }
+    
+    // Check for tap (stable coldest digit appears)
+    if (simState.isStable && digit === coldest && !state.simulated.pendingS2) {
+        simState.waitingConfirm = true;
+        simState.confirmDigit = coldest;
+        log(`👻 S2 Sim: Tap on D${coldest} - waiting confirm`, 'scanner');
+    }
+}
+
+function updateSimulatedUI() {
+    const s1 = state.simulated.s1Summary;
+    const s2 = state.simulated.s2Summary;
+    
+    document.getElementById('s1SimSummary').textContent = `${s1.wins}W/${s1.losses}L = $${s1.pl.toFixed(2)}`;
+    document.getElementById('s1SimSummary').style.color = s1.pl >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('s2SimSummary').textContent = `${s2.wins}W/${s2.losses}L = $${s2.pl.toFixed(2)}`;
+    document.getElementById('s2SimSummary').style.color = s2.pl >= 0 ? 'var(--green)' : 'var(--red)';
+    
+    // Calculate scanner impact (negative simulated P/L = saved money, positive = cost money)
+    const totalSimPL = s1.pl + s2.pl;
+    const totalSimTrades = s1.trades + s2.trades;
+    const impactEl = document.getElementById('scannerImpact');
+    const impactTextEl = document.getElementById('scannerImpactText');
+    
+    if (totalSimTrades > 0) {
+        impactEl.style.display = 'block';
+        if (totalSimPL < 0) {
+            // Negative sim P/L = scanner SAVED you money
+            impactTextEl.textContent = `✅ Scanner SAVED you $${Math.abs(totalSimPL).toFixed(2)}`;
+            impactTextEl.style.color = 'var(--green)';
+        } else {
+            // Positive sim P/L = scanner COST you money (missed profits)
+            impactTextEl.textContent = `⚠️ Scanner cost you $${totalSimPL.toFixed(2)} in missed profits`;
+            impactTextEl.style.color = 'var(--yellow)';
+        }
+    } else {
+        impactEl.style.display = 'none';
+    }
+    
+    const all = [...state.simulated.s1Trades, ...state.simulated.s2Trades].slice(-20).reverse();
+    document.getElementById('simTradesList').innerHTML = all.length ? all.map(t => `<div class="sim-trade ${t.result.toLowerCase()}"><span>${t.strategy}|D${t.digit} (${t.freq}%)</span><span>${t.result} ${t.profit >= 0 ? '+' : ''}$${t.profit.toFixed(2)}</span></div>`).join('') : '<div style="text-align:center;color:var(--muted);padding:10px;font-size:9px">No simulated trades</div>';
 }
 
 // TRADE EXECUTION
