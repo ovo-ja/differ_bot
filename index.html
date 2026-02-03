@@ -276,7 +276,7 @@
                                     <span style="font-size:8px;color:var(--muted)">seconds</span>
                                 </div>
                             </div>
-                            <div style="padding:8px;background:rgba(249,115,22,0.1);border-radius:4px">
+                            <div style="padding:8px;background:rgba(249,115,22,0.1);border-radius:4px;margin-bottom:6px">
                                 <div style="font-size:9px;color:var(--orange);font-weight:600;margin-bottom:6px">👻 Shadow Mode</div>
                                 <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">
                                     <span style="font-size:9px;color:var(--muted)">Active Trades</span>
@@ -284,6 +284,15 @@
                                 </div>
                                 <div style="font-size:8px;color:var(--muted)">
                                     Shadow watches until loss, then trades X times
+                                </div>
+                            </div>
+                            <div style="padding:8px;background:rgba(239,68,68,0.1);border:1px solid var(--red);border-radius:4px">
+                                <div style="display:flex;align-items:center;gap:6px">
+                                    <input type="checkbox" id="strat2ForceActive" style="width:auto;margin:0" onchange="toggleForceActive()">
+                                    <span style="font-size:9px;color:var(--red);font-weight:600">🔥 Force Active (Skip Shadow)</span>
+                                </div>
+                                <div style="font-size:8px;color:var(--muted);margin-top:4px">
+                                    Trade immediately, no shadow mode
                                 </div>
                             </div>
                         </div>
@@ -990,8 +999,9 @@ function handleTick(tick) {
                         state.currentTarget = state.strat2.trackedDigit;
                         triggerStrat2Trade(state.strat2.trackedDigit, state.strat2.trackedFreq);
                         
-                        // Check if active trades complete
-                        if (state.strat2.activeTradeCount >= activeTradesTarget) {
+                        // Check if active trades complete (unless force active is on)
+                        const forceActive = document.getElementById('strat2ForceActive').checked;
+                        if (!forceActive && state.strat2.activeTradeCount >= activeTradesTarget) {
                             log(`🔥 S2 ACTIVE: ${activeTradesTarget}/${activeTradesTarget} complete → Back to Shadow Mode`, 'info');
                             state.strat2.phase = 'shadow';
                             state.strat2.activeTradeCount = 0;
@@ -1334,6 +1344,28 @@ function toggleStrat2() {
     updateStrategyStatus();
 }
 
+function toggleForceActive() {
+    const forceActive = document.getElementById('strat2ForceActive').checked;
+    
+    if (forceActive) {
+        // Force to active mode immediately
+        state.strat2.phase = 'active';
+        state.strat2.activeTradeCount = 0;
+        state.strat2.simulatedTradeDigit = null;
+        state.strat2.waitingForSimResult = false;
+        log(`🔥 S2: Force Active enabled - skipping shadow mode`, 'trade');
+    } else {
+        // Reset to shadow mode
+        state.strat2.phase = 'shadow';
+        state.strat2.activeTradeCount = 0;
+        log(`👻 S2: Force Active disabled - back to shadow mode`, 'info');
+    }
+    
+    if (state.autoRunning) {
+        updateStrat2Indicator();
+    }
+}
+
 function updateStrategyStatus() {
     const strat1 = document.getElementById('strat1Enabled').checked;
     const strat2 = document.getElementById('strat2Enabled').checked;
@@ -1451,7 +1483,8 @@ function resetStrat2() {
 // Full reset including phase (used when stopping or starting auto)
 function resetStrat2Full() {
     resetStrat2();
-    state.strat2.phase = 'shadow';
+    const forceActive = document.getElementById('strat2ForceActive')?.checked || false;
+    state.strat2.phase = forceActive ? 'active' : 'shadow';
     state.strat2.activeTradeCount = 0;
 }
 
