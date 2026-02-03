@@ -167,6 +167,18 @@
                 </div>
             </div>
             
+            <!-- MARKET PRESETS -->
+            <div class="card">
+                <h3>⚡ Quick Presets</h3>
+                <div style="font-size:8px;color:var(--muted);margin-bottom:6px">Apply optimized settings for market:</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
+                    <button class="btn-green" onclick="applyPreset('vol10')" style="font-size:9px;padding:6px">🥇 Vol 10</button>
+                    <button class="btn-blue" onclick="applyPreset('vol25')" style="font-size:9px;padding:6px">🥈 Vol 25</button>
+                    <button class="btn-purple" onclick="applyPreset('vol50')" style="font-size:9px;padding:6px">🥉 Vol 50</button>
+                </div>
+                <div id="presetStatus" style="font-size:8px;color:var(--green);margin-top:6px;text-align:center"></div>
+            </div>
+            
             <!-- STRATEGY 1 -->
             <div class="card" id="strat1Card">
                 <h3>🔷 Strategy 1: Two-Phase Doubles</h3>
@@ -334,7 +346,7 @@
             
             <!-- Digit Grid -->
             <div class="card highlight">
-                <h3>🔢 Digit Frequency <span id="tickCount" style="float:right;color:var(--cyan)">0 ticks</span></h3>
+                <h3>🔢 Digit Frequency <span id="currentMarket" style="color:var(--purple);margin-left:6px">--</span> <span id="tickCount" style="float:right;color:var(--cyan)">0 ticks</span></h3>
                 <div style="display:flex;justify-content:center;align-items:center;gap:15px;margin-bottom:6px;padding:8px;background:var(--bg);border-radius:6px">
                     <div style="text-align:center">
                         <span style="font-size:8px;color:var(--muted)">PRICE</span>
@@ -573,11 +585,17 @@ function connect() {
 function subscribeTicks() {
     const symbol = document.getElementById('symbol').value;
     state.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+    document.getElementById('currentMarket').textContent = symbol;
     log(`📊 Subscribed to ${symbol}`, 'info');
 }
 
 function changePair() {
-    if (state.connected) { state.ws.send(JSON.stringify({ forget_all: 'ticks' })); state.ticks = []; subscribeTicks(); }
+    if (state.connected) { 
+        state.ws.send(JSON.stringify({ forget_all: 'ticks' })); 
+        state.ticks = []; 
+        subscribeTicks(); 
+        document.getElementById('currentMarket').textContent = document.getElementById('symbol').value;
+    }
 }
 
 // TICK PROCESSING
@@ -639,8 +657,10 @@ function recordTick(price, digit, freqs, isDouble, isTriple) {
     state.session.totalTicks++;
     if (state.scanner.s1Healthy || state.scanner.s2Healthy) state.session.healthyTicks++;
     
+    const market = document.getElementById('symbol').value;
+    
     state.session.tickLog.push({
-        timestamp: getTimestamp(), price, digit,
+        timestamp: getTimestamp(), market, price, digit,
         freq_0: freqs[0].toFixed(1), freq_1: freqs[1].toFixed(1), freq_2: freqs[2].toFixed(1), freq_3: freqs[3].toFixed(1), freq_4: freqs[4].toFixed(1),
         freq_5: freqs[5].toFixed(1), freq_6: freqs[6].toFixed(1), freq_7: freqs[7].toFixed(1), freq_8: freqs[8].toFixed(1), freq_9: freqs[9].toFixed(1),
         coldest: freqs.indexOf(Math.min(...freqs)), coldest_freq: Math.min(...freqs).toFixed(1),
@@ -1382,7 +1402,8 @@ function processTradeResult(contract) {
     
     log(`${won ? '✅' : '❌'} ${info.strategy}: D${info.digit} ${won ? 'WIN' : 'LOSS'} $${profit.toFixed(2)}`, won ? 'win' : 'loss');
     
-    state.session.tradeLog.push({ time: getTimestamp(), strategy: info.strategy, digit: info.digit, freq: info.freq, result: won ? 'WIN' : 'LOSS', profit, streak: state.currentStreak });
+    const market = document.getElementById('symbol').value;
+    state.session.tradeLog.push({ time: getTimestamp(), market, strategy: info.strategy, digit: info.digit, freq: info.freq, result: won ? 'WIN' : 'LOSS', profit, streak: state.currentStreak });
     
     updateTradingStatus(); updateTotalStats(); updateRealTradesUI(info.digit, info.freq, info.strategy, won, profit); checkMarketHealth();
 }
@@ -1525,6 +1546,134 @@ document.addEventListener('visibilitychange', function() {
         log('📱 Running in background...', 'info');
     }
 });
+
+// MARKET PRESETS - Optimized settings for each market
+function applyPreset(preset) {
+    const presets = {
+        vol10: {
+            name: 'Vol 10 (1HZ10V)',
+            symbol: '1HZ10V',
+            // S1 Settings
+            tripleThreshold: 6,
+            doubleColdThreshold: 6,
+            tradesPerCycle: 4,
+            tripleCooldown: 3,
+            s1WinTarget: 10,
+            s1MaxTrades: 20,
+            s1RapidFire: false,
+            s1RapidCount: 2,
+            // S2 Settings
+            strat2Threshold: 5,
+            strat2Stability: 2,
+            s2DigitCooldown: 8,
+            s2MaxPerDigit: 3,
+            s2WinTarget: 8,
+            s2MaxTrades: 15,
+            s2RapidFire: false,
+            s2RapidCount: 2,
+            // Scanner Settings
+            scannerS1TripleMax: 2.0,
+            scannerS1DTMax: 20,
+            scannerS2StabilityMin: 80,
+            scannerS2SpikeMax: 20
+        },
+        vol25: {
+            name: 'Vol 25 (1HZ25V)',
+            symbol: '1HZ25V',
+            // S1 Settings
+            tripleThreshold: 7,
+            doubleColdThreshold: 7,
+            tradesPerCycle: 3,
+            tripleCooldown: 5,
+            s1WinTarget: 8,
+            s1MaxTrades: 15,
+            s1RapidFire: false,
+            s1RapidCount: 2,
+            // S2 Settings
+            strat2Threshold: 6,
+            strat2Stability: 3,
+            s2DigitCooldown: 10,
+            s2MaxPerDigit: 2,
+            s2WinTarget: 5,
+            s2MaxTrades: 10,
+            s2RapidFire: false,
+            s2RapidCount: 2,
+            // Scanner Settings
+            scannerS1TripleMax: 2.5,
+            scannerS1DTMax: 25,
+            scannerS2StabilityMin: 70,
+            scannerS2SpikeMax: 30
+        },
+        vol50: {
+            name: 'Vol 50 (1HZ50V)',
+            symbol: '1HZ50V',
+            // S1 Settings
+            tripleThreshold: 7,
+            doubleColdThreshold: 8,
+            tradesPerCycle: 3,
+            tripleCooldown: 5,
+            s1WinTarget: 6,
+            s1MaxTrades: 12,
+            s1RapidFire: false,
+            s1RapidCount: 2,
+            // S2 Settings
+            strat2Threshold: 7,
+            strat2Stability: 4,
+            s2DigitCooldown: 15,
+            s2MaxPerDigit: 2,
+            s2WinTarget: 4,
+            s2MaxTrades: 8,
+            s2RapidFire: false,
+            s2RapidCount: 2,
+            // Scanner Settings
+            scannerS1TripleMax: 3.0,
+            scannerS1DTMax: 30,
+            scannerS2StabilityMin: 60,
+            scannerS2SpikeMax: 35
+        }
+    };
+    
+    const p = presets[preset];
+    if (!p) return;
+    
+    // Apply symbol
+    document.getElementById('symbol').value = p.symbol;
+    
+    // Apply S1 settings
+    document.getElementById('tripleThreshold').value = p.tripleThreshold;
+    document.getElementById('doubleColdThreshold').value = p.doubleColdThreshold;
+    document.getElementById('tradesPerCycle').value = p.tradesPerCycle;
+    document.getElementById('tripleCooldown').value = p.tripleCooldown;
+    document.getElementById('s1WinTarget').value = p.s1WinTarget;
+    document.getElementById('s1MaxTrades').value = p.s1MaxTrades;
+    document.getElementById('s1RapidFire').checked = p.s1RapidFire;
+    document.getElementById('s1RapidCount').value = p.s1RapidCount;
+    
+    // Apply S2 settings
+    document.getElementById('strat2Threshold').value = p.strat2Threshold;
+    document.getElementById('strat2Stability').value = p.strat2Stability;
+    document.getElementById('s2DigitCooldown').value = p.s2DigitCooldown;
+    document.getElementById('s2MaxPerDigit').value = p.s2MaxPerDigit;
+    document.getElementById('s2WinTarget').value = p.s2WinTarget;
+    document.getElementById('s2MaxTrades').value = p.s2MaxTrades;
+    document.getElementById('s2RapidFire').checked = p.s2RapidFire;
+    document.getElementById('s2RapidCount').value = p.s2RapidCount;
+    
+    // Apply Scanner settings
+    document.getElementById('scannerS1TripleMax').value = p.scannerS1TripleMax;
+    document.getElementById('scannerS1DTMax').value = p.scannerS1DTMax;
+    document.getElementById('scannerS2StabilityMin').value = p.scannerS2StabilityMin;
+    document.getElementById('scannerS2SpikeMax').value = p.scannerS2SpikeMax;
+    
+    // Change pair if connected
+    if (state.connected) changePair();
+    
+    // Show status
+    document.getElementById('presetStatus').textContent = `✅ ${p.name} preset applied`;
+    setTimeout(() => document.getElementById('presetStatus').textContent = '', 3000);
+    
+    log(`⚡ Applied ${p.name} preset`, 'info');
+}
 
 log('🎯 DIFFERS Bot v7 loaded', 'info');
 log('📊 Connect → Click START → Auto-trade', 'info');
