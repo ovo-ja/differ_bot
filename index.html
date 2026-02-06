@@ -465,7 +465,7 @@ const S = {
     strat: {
         lastColdest: null, stableSince: null, isStable: false,
         waitingConfirm: false, confirmDigit: null,
-        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
+        digitCooldowns: {}, digitTradeCount: {}
     },
 
     // Simulated pending (Phase 1)
@@ -770,18 +770,6 @@ function processStrategy(digit, freqs) {
     else if (st.stableSince) st.isStable = (Date.now() - st.stableSince) / 1000 >= ss;
     st.lastColdest = coldest;
 
-    // Phase 2 only: Hot detection & safety filters
-    if (S.phase === 2) {
-        st.recentDigitAppearances.push({ digit: coldest, time: now });
-        st.recentDigitAppearances = st.recentDigitAppearances.filter(a => now - a.time < 10000);
-        const recentCount = st.recentDigitAppearances.filter(a => a.digit === coldest).length;
-        if (recentCount >= 4) {
-            if (st.digitHotWarned !== coldest) { log(`🔥 D${coldest} going HOT (${recentCount}x in 10s) - skip`, 'alert'); st.digitHotWarned = coldest; }
-            st.waitingConfirm = false;
-            return;
-        }
-    }
-
     if (st.waitingConfirm) {
         if (digit !== st.confirmDigit) {
             const cd = st.confirmDigit;
@@ -952,7 +940,7 @@ function resetStratState() {
     S.strat = {
         lastColdest: null, stableSince: null, isStable: false,
         waitingConfirm: false, confirmDigit: null,
-        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
+        digitCooldowns: {}, digitTradeCount: {}
     };
 }
 
