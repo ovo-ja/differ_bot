@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DIFFERS Bot v7 - Market Scanner</title>
+    <title>DIFFERS Bot v8 - Phase Sniper</title>
     <style>
         :root{--bg:#0a0e17;--card:#1a2235;--border:#2a3549;--text:#f1f5f9;--muted:#64748b;--green:#10b981;--red:#ef4444;--cyan:#06b6d4;--yellow:#f59e0b;--purple:#a855f7;--orange:#f97316;--blue:#3b82f6}
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);padding:8px;font-size:12px}
-        .container{max-width:1600px;margin:0 auto}
+        .container{max-width:1400px;margin:0 auto}
         .header{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:2px solid var(--cyan);margin-bottom:8px;flex-wrap:wrap;gap:4px}
         .header h1{font-size:16px;color:var(--cyan)}
         .status{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -18,31 +18,27 @@
         .time{font-size:10px;color:var(--muted)}
         .reconnect-badge{font-size:9px;color:var(--yellow);background:rgba(245,158,11,0.15);padding:2px 6px;border-radius:10px;display:none}
         .stale-badge{font-size:9px;color:var(--red);background:rgba(239,68,68,0.15);padding:2px 6px;border-radius:10px;display:none}
-        
-        .grid{display:grid;grid-template-columns:260px 1fr 300px;gap:8px}
+
+        .grid{display:grid;grid-template-columns:280px 1fr 300px;gap:8px}
         @media(max-width:1200px){.grid{grid-template-columns:1fr}}
-        
+
         .card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:6px}
         .card h3{font-size:9px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
         .card.highlight{border:2px solid var(--cyan);background:rgba(6,182,212,0.05)}
-        .card.scanner{border:2px solid var(--purple);background:rgba(168,85,247,0.05)}
-        .card.paused{border:2px solid var(--red)!important;background:rgba(239,68,68,0.1)!important}
-        .card.simulated{border:2px solid var(--yellow);background:rgba(245,158,11,0.05)}
-        
+
         label{display:block;font-size:9px;color:var(--muted);margin-bottom:2px}
         input,select{width:100%;padding:5px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;margin-bottom:4px}
         .row{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-        
+
         button{padding:6px 10px;border:none;border-radius:5px;font-weight:700;cursor:pointer;font-size:10px;text-transform:uppercase;transition:all 0.2s}
         .btn-blue{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;width:100%}
         .btn-cyan{background:var(--cyan);color:black}
         .btn-green{background:var(--green);color:white}
         .btn-red{background:var(--red);color:white}
-        .btn-purple{background:var(--purple);color:white}
         .btn-orange{background:var(--orange);color:white}
-        
+
         .digit-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:8px 0}
-        .digit-box{background:var(--bg);border:2px solid var(--border);border-radius:6px;padding:8px 4px;text-align:center;transition:all 0.2s;position:relative}
+        .digit-box{background:var(--bg);border:2px solid var(--border);border-radius:6px;padding:8px 4px;text-align:center;transition:all 0.2s}
         .digit-box.coldest{border-color:var(--cyan)!important;background:rgba(6,182,212,0.25)!important;box-shadow:0 0 15px rgba(6,182,212,0.5)}
         .digit-box.just-occurred{border-color:var(--yellow)!important;background:rgba(245,158,11,0.4)!important;transform:scale(1.05)}
         .digit-box.doubled{border-color:var(--red)!important;background:rgba(239,68,68,0.4)!important;transform:scale(1.08);animation:pulse-double 0.5s ease-in-out infinite}
@@ -52,69 +48,50 @@
         .digit-num{font-size:20px;font-weight:700}
         .digit-pct{font-size:12px;color:var(--muted);margin-top:2px;font-weight:600}
         .digit-pct.cold{color:var(--cyan);font-weight:700}
-        
-        .scanner-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .scanner-metric{background:var(--bg);padding:8px;border-radius:4px;text-align:center}
-        .scanner-metric .value{font-size:16px;font-weight:700;font-family:monospace}
-        .scanner-metric .label{font-size:8px;color:var(--muted);text-transform:uppercase}
-        .scanner-metric.good .value{color:var(--green)}
-        .scanner-metric.caution .value{color:var(--yellow)}
-        .scanner-metric.bad .value{color:var(--red)}
-        
-        .health-bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin:4px 0}
-        .health-fill{height:100%;transition:width 0.3s,background 0.3s}
-        .health-fill.good{background:var(--green)}
-        .health-fill.caution{background:var(--yellow)}
-        .health-fill.bad{background:var(--red)}
-        
-        .verdict{padding:10px;border-radius:6px;text-align:center;font-weight:700;margin:8px 0}
-        .verdict.good{background:rgba(16,185,129,0.2);border:2px solid var(--green);color:var(--green)}
-        .verdict.caution{background:rgba(245,158,11,0.2);border:2px solid var(--yellow);color:var(--yellow)}
-        .verdict.bad{background:rgba(239,68,68,0.2);border:2px solid var(--red);color:var(--red)}
-        .verdict.scouting{background:rgba(168,85,247,0.2);border:2px solid var(--purple);color:var(--purple)}
-        
+
+        /* Phase Banner */
+        .phase-banner{padding:14px;border-radius:8px;text-align:center;font-weight:700;margin:8px 0;font-size:14px;transition:all 0.3s}
+        .phase-banner.idle{background:rgba(100,116,139,0.2);border:2px solid var(--muted);color:var(--muted)}
+        .phase-banner.phase1{background:rgba(245,158,11,0.2);border:2px solid var(--yellow);color:var(--yellow);animation:pulse-phase1 2s ease-in-out infinite}
+        .phase-banner.phase2{background:rgba(16,185,129,0.2);border:2px solid var(--green);color:var(--green);animation:pulse-phase2 1s ease-in-out infinite}
+        .phase-banner.done{background:rgba(6,182,212,0.2);border:2px solid var(--cyan);color:var(--cyan)}
+        .phase-banner.session-done{background:rgba(168,85,247,0.2);border:2px solid var(--purple);color:var(--purple)}
+        @keyframes pulse-phase1{0%,100%{opacity:1}50%{opacity:0.7}}
+        @keyframes pulse-phase2{0%,100%{box-shadow:0 0 5px var(--green)}50%{box-shadow:0 0 20px var(--green)}}
+
         .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:6px 0}
         .stat{background:var(--bg);padding:6px;border-radius:4px;text-align:center}
         .stat-val{font-size:14px;font-weight:700;font-family:monospace}
         .stat-val.pos{color:var(--green)}
         .stat-val.neg{color:var(--red)}
         .stat-label{font-size:7px;color:var(--muted);text-transform:uppercase}
-        
-        .log{background:var(--bg);border-radius:4px;padding:4px;max-height:120px;overflow-y:auto;font-family:monospace;font-size:8px}
+
+        .log{background:var(--bg);border-radius:4px;padding:4px;max-height:200px;overflow-y:auto;font-family:monospace;font-size:8px}
         .log div{padding:1px 0;border-bottom:1px solid var(--border)}
         .log .win{color:var(--green)}
         .log .loss{color:var(--red)}
         .log .info{color:var(--cyan)}
         .log .alert{color:var(--yellow)}
         .log .trade{color:var(--orange);font-weight:bold}
-        .log .scanner{color:var(--purple)}
-        
-        .sim-trades{max-height:150px;overflow-y:auto}
-        .sim-trade{display:flex;justify-content:space-between;padding:4px 6px;background:var(--bg);margin-bottom:2px;border-radius:4px;font-size:9px;border-left:3px solid var(--border);opacity:0.8}
-        .sim-trade.win{border-left-color:var(--green)}
-        .sim-trade.loss{border-left-color:var(--red)}
-        
-        .trades{max-height:150px;overflow-y:auto}
+        .log .phase{color:var(--purple);font-weight:bold}
+
+        .trades{max-height:200px;overflow-y:auto}
         .trade-row{display:flex;justify-content:space-between;padding:4px 6px;background:var(--bg);margin-bottom:2px;border-radius:4px;font-size:9px;border-left:3px solid var(--border)}
         .trade-row.win{border-left-color:var(--green)}
         .trade-row.loss{border-left-color:var(--red)}
-        
-        .scout-progress{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin:6px 0}
-        .scout-fill{height:100%;background:var(--purple);transition:width 0.5s}
-        
-        .entry-mode{padding:6px;background:var(--bg);border-radius:4px;margin:4px 0}
-        .entry-mode label{display:flex;align-items:center;gap:6px;padding:3px;cursor:pointer;font-size:9px;color:var(--text)}
-        .entry-mode input[type="radio"]{width:auto;margin:0}
-        .entry-mode .recommended{color:var(--green);font-size:8px}
-        
-        .session-limits{padding:6px;background:rgba(239,68,68,0.1);border:1px solid var(--red);border-radius:4px;margin-top:4px}
-        .session-limits h4{font-size:8px;color:var(--red);margin-bottom:4px}
+        .trade-row.sim{border-left-color:var(--yellow);opacity:0.7}
+
+        .cycle-progress{margin:8px 0}
+        .cycle-bar{height:10px;background:var(--bg);border-radius:5px;overflow:hidden;margin:3px 0}
+        .cycle-fill{height:100%;transition:width 0.3s;border-radius:5px}
+        .cycle-fill.p1{background:var(--yellow)}
+        .cycle-fill.p2{background:var(--green)}
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1>🎯 DIFFERS Bot v7 - Market Scanner</h1>
+        <h1>🎯 DIFFERS Bot v8 - Phase Sniper</h1>
         <div class="status">
             <span class="time" id="torontoTime">--:--:-- EST</span>
             <span class="balance" id="balance">$0.00</span>
@@ -124,7 +101,7 @@
             <span class="stale-badge" id="staleBadge">⚠️ STALE</span>
         </div>
     </div>
-    
+
     <div class="grid">
         <!-- LEFT COLUMN -->
         <div>
@@ -134,12 +111,12 @@
                 <input type="password" id="token">
                 <button class="btn-blue" onclick="connect()">Connect</button>
                 <div style="margin-top:4px;font-size:8px;color:var(--muted)" id="connectionInfo">
-                    <span id="workerStatus">Worker: ⏳</span> | 
-                    <span id="wakeLockStatus">WakeLock: ⏳</span> | 
+                    <span id="workerStatus">Worker: ⏳</span> |
+                    <span id="wakeLockStatus">WakeLock: ⏳</span> |
                     <span id="idbStatus">IDB: ⏳</span>
                 </div>
             </div>
-            
+
             <div class="card">
                 <h3>⚙️ Settings</h3>
                 <div class="row">
@@ -147,11 +124,11 @@
                     <div><label>Symbol</label>
                         <select id="symbol" onchange="changePair()">
                             <optgroup label="Volatility (1s)">
-                                <option value="1HZ10V">Vol 10 (1s)</option>
+                                <option value="1HZ10V" selected>Vol 10 (1s)</option>
                                 <option value="1HZ25V">Vol 25 (1s)</option>
                                 <option value="1HZ50V">Vol 50 (1s)</option>
                                 <option value="1HZ75V">Vol 75 (1s)</option>
-                                <option value="1HZ100V" selected>Vol 100 (1s)</option>
+                                <option value="1HZ100V">Vol 100 (1s)</option>
                             </optgroup>
                             <optgroup label="Jump Indices">
                                 <option value="JD10">Jump 10</option>
@@ -165,197 +142,113 @@
                 </div>
                 <label>Ticks to Analyze</label>
                 <input type="number" id="ticksToAnalyze" value="100" min="30" max="500">
-                
-                <div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:6px;border:1px solid var(--purple)">
-                    <label style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                        <input type="checkbox" id="backgroundMode" style="width:auto">
-                        <span style="font-size:10px;font-weight:600;color:var(--purple)">📱 Background Mode (Mobile)</span>
-                    </label>
-                    <div style="font-size:8px;color:var(--muted)">Plays silent audio to keep bot running when phone is locked</div>
-                    <div id="backgroundStatus" style="font-size:9px;color:var(--green);margin-top:4px;display:none">🔊 Keep-alive active</div>
-                </div>
             </div>
-            
-            <!-- MARKET PRESETS -->
+
             <div class="card">
-                <h3>⚡ Quick Presets</h3>
-                <div style="font-size:8px;color:var(--muted);margin-bottom:6px">Apply optimized settings for market:</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
-                    <button class="btn-green" onclick="applyPreset('vol10')" style="font-size:9px;padding:6px">🥇 Vol 10</button>
-                    <button class="btn-blue" onclick="applyPreset('vol25')" style="font-size:9px;padding:6px">🥈 Vol 25</button>
-                    <button class="btn-purple" onclick="applyPreset('vol50')" style="font-size:9px;padding:6px">🥉 Vol 50</button>
+                <h3>🎯 Strategy: Coldest + Confirm</h3>
+                <div class="row">
+                    <div><label>Coldest ≤%</label><input type="number" id="coldThreshold" value="6" step="0.5"></div>
+                    <div><label>Stability (s)</label><input type="number" id="stability" value="3" min="1"></div>
                 </div>
-                <div id="presetStatus" style="font-size:8px;color:var(--green);margin-top:6px;text-align:center"></div>
+                <div class="row">
+                    <div><label>Digit Cooldown (s)</label><input type="number" id="digitCooldown" value="10" min="0"></div>
+                    <div><label>Max/Digit</label><input type="number" id="maxPerDigit" value="2" min="1" max="5"></div>
+                </div>
             </div>
-            
-            <!-- STRATEGY 1 -->
-            <div class="card" id="strat1Card">
-                <h3>🔷 Strategy 1: Two-Phase Doubles</h3>
-                <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-                    <input type="checkbox" id="strat1Enabled" checked style="width:auto">
-                    <span style="font-size:10px;font-weight:600">Enabled</span>
-                </label>
-                
-                <div class="entry-mode">
-                    <div style="font-size:8px;color:var(--muted);margin-bottom:2px">ENTRY MODE:</div>
-                    <label><input type="radio" name="s1EntryMode" value="phase1"> Phase 1 Only</label>
-                    <label><input type="radio" name="s1EntryMode" value="scanner"> Scanner Only</label>
-                    <label><input type="radio" name="s1EntryMode" value="both" checked> Scanner + Phase 1 <span class="recommended">★</span></label>
-                </div>
-                
+
+            <div class="card" style="border:2px solid var(--purple);background:rgba(168,85,247,0.05)">
+                <h3>🔄 Session & Cycle Config</h3>
                 <div class="row">
-                    <div><label>Triple ≤%</label><input type="number" id="tripleThreshold" value="7" step="0.5"></div>
-                    <div><label>Double ≤%</label><input type="number" id="doubleColdThreshold" value="7" step="0.5"></div>
+                    <div><label>Trades per Cycle</label><input type="number" id="tradesPerCycle" value="12" min="1" max="50"></div>
+                    <div><label>Cycles per Session</label><input type="number" id="cyclesPerSession" value="2" min="1" max="10"></div>
                 </div>
-                <div class="row">
-                    <div><label>Trades/Cycle</label><input type="number" id="tradesPerCycle" value="3" min="1" max="10"></div>
-                    <div><label>Cooldown (s)</label><input type="number" id="tripleCooldown" value="5" min="0"></div>
+                <div style="font-size:8px;color:var(--muted);margin-top:4px;padding:4px;background:var(--bg);border-radius:4px">
+                    <div>📋 <strong>Phase 1:</strong> Shadow-trade until a <span style="color:var(--red)">LOSS</span> is detected</div>
+                    <div>📋 <strong>Phase 2:</strong> Real trades begin after the loss signal</div>
+                    <div>📋 Each cycle = Phase 1 → Phase 2 → <span id="configTradesLabel">12</span> real trades</div>
+                    <div>📋 Session = <span id="configCyclesLabel">2</span> cycles then STOP</div>
                 </div>
-                
-                <div class="session-limits">
-                    <h4>🎯 Session Limits</h4>
-                    <div class="row">
-                        <div><label>Win Target</label><input type="number" id="s1WinTarget" value="8" min="0"></div>
-                        <div><label>Max Trades</label><input type="number" id="s1MaxTrades" value="15" min="0"></div>
-                    </div>
-                    <label style="display:flex;align-items:center;gap:4px;margin-top:2px">
-                        <input type="checkbox" id="s1StopOnLoss" checked style="width:auto">Stop on loss
+            </div>
+
+            <div class="card">
+                <h3>🔥 Rapid Fire <span style="color:var(--red);font-size:7px">⚠️ RISKY</span></h3>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <label style="display:flex;align-items:center;gap:4px">
+                        <input type="checkbox" id="rapidFire" style="width:auto">
+                        <span style="font-size:9px">Enable</span>
                     </label>
-                </div>
-                
-                <div class="session-limits" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
-                    <h4>🔥 Rapid Fire <span style="color:var(--red);font-size:7px">⚠️ RISKY</span></h4>
-                    <div style="display:flex;align-items:center;gap:8px">
-                        <label style="display:flex;align-items:center;gap:4px">
-                            <input type="checkbox" id="s1RapidFire" style="width:auto">
-                            <span style="font-size:9px">Enable</span>
-                        </label>
-                        <div style="flex:1">
-                            <label style="font-size:8px">Trades/Signal</label>
-                            <input type="number" id="s1RapidCount" value="2" min="2" max="5" style="width:100%">
-                        </div>
+                    <div style="flex:1">
+                        <label style="font-size:8px">Trades/Signal</label>
+                        <input type="number" id="rapidCount" value="2" min="2" max="5" style="width:100%">
                     </div>
-                    <div style="font-size:7px;color:var(--red);margin-top:2px">Amplifies losses - use with caution</div>
                 </div>
+                <div style="font-size:7px;color:var(--red);margin-top:2px">Places multiple trades per signal - amplifies losses</div>
             </div>
-            
-            <!-- STRATEGY 2 -->
-            <div class="card" id="strat2Card">
-                <h3>🔶 Strategy 2: Coldest + Confirm</h3>
-                <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-                    <input type="checkbox" id="strat2Enabled" style="width:auto">
-                    <span style="font-size:10px;font-weight:600">Enabled</span>
+
+            <div class="card">
+                <h3>📱 Background Mode</h3>
+                <label style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <input type="checkbox" id="backgroundMode" style="width:auto">
+                    <span style="font-size:10px;font-weight:600;color:var(--purple)">Keep alive when locked</span>
                 </label>
-                
-                <div class="entry-mode">
-                    <div style="font-size:8px;color:var(--muted);margin-bottom:2px">ENTRY MODE:</div>
-                    <label><input type="radio" name="s2EntryMode" value="shadow"> Shadow Only</label>
-                    <label><input type="radio" name="s2EntryMode" value="scanner" checked> Scanner Only <span class="recommended">★</span></label>
-                    <label><input type="radio" name="s2EntryMode" value="both"> Scanner + Shadow</label>
-                </div>
-                
-                <div class="row">
-                    <div><label>Coldest ≤%</label><input type="number" id="strat2Threshold" value="6" step="0.5"></div>
-                    <div><label>Stability (s)</label><input type="number" id="strat2Stability" value="3" min="1"></div>
-                </div>
-                
-                <div class="row">
-                    <div><label>Digit Cooldown (s)</label><input type="number" id="s2DigitCooldown" value="10" min="0"></div>
-                    <div><label>Max/Digit</label><input type="number" id="s2MaxPerDigit" value="2" min="1" max="5"></div>
-                </div>
-                
-                <div class="session-limits">
-                    <h4>🎯 Session Limits</h4>
-                    <div class="row">
-                        <div><label>Win Target</label><input type="number" id="s2WinTarget" value="5" min="0"></div>
-                        <div><label>Max Trades</label><input type="number" id="s2MaxTrades" value="10" min="0"></div>
-                    </div>
-                    <label style="display:flex;align-items:center;gap:4px;margin-top:2px">
-                        <input type="checkbox" id="s2StopOnLoss" checked style="width:auto">Stop on loss
-                    </label>
-                </div>
-                
-                <div class="session-limits" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
-                    <h4>🔥 Rapid Fire <span style="color:var(--red);font-size:7px">⚠️ RISKY</span></h4>
-                    <div style="display:flex;align-items:center;gap:8px">
-                        <label style="display:flex;align-items:center;gap:4px">
-                            <input type="checkbox" id="s2RapidFire" style="width:auto">
-                            <span style="font-size:9px">Enable</span>
-                        </label>
-                        <div style="flex:1">
-                            <label style="font-size:8px">Trades/Signal</label>
-                            <input type="number" id="s2RapidCount" value="2" min="2" max="5" style="width:100%">
-                        </div>
-                    </div>
-                    <div style="font-size:7px;color:var(--red);margin-top:2px">Amplifies losses - use with caution</div>
-                </div>
+                <div style="font-size:8px;color:var(--muted)">Silent audio keeps bot running on mobile</div>
+                <div id="backgroundStatus" style="font-size:9px;color:var(--green);margin-top:4px;display:none">🔊 Keep-alive active</div>
             </div>
-            
+
             <div class="card">
                 <h3>📋 Activity Log</h3>
                 <div class="log" id="log"></div>
             </div>
         </div>
-        
+
         <!-- MIDDLE COLUMN -->
         <div>
-            <!-- Market Scanner -->
-            <div class="card scanner" id="scannerPanel">
-                <h3>📊 MARKET HEALTH SCANNER <span id="scannerStatus" style="float:right;color:var(--purple)">IDLE</span></h3>
-                
-                <div id="scoutProgress" style="display:none">
-                    <div style="font-size:10px;text-align:center;color:var(--purple);margin-bottom:4px">
-                        🔍 SCOUTING... <span id="scoutTime">0:00</span> / 2:00
+            <!-- Phase Banner -->
+            <div class="phase-banner idle" id="phaseBanner">
+                ⏹ Connect and click START
+            </div>
+
+            <!-- Cycle Progress -->
+            <div class="card" id="progressCard" style="display:none">
+                <h3>📊 SESSION PROGRESS</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+                    <div style="background:var(--bg);padding:8px;border-radius:4px;text-align:center">
+                        <div style="font-size:8px;color:var(--muted)">CYCLE</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--purple)" id="currentCycle">1/2</div>
                     </div>
-                    <div class="scout-progress"><div class="scout-fill" id="scoutFill" style="width:0%"></div></div>
-                </div>
-                
-                <div class="scanner-grid">
-                    <div>
-                        <div style="font-size:9px;font-weight:600;color:var(--cyan);margin-bottom:4px">Strategy 1 Health</div>
-                        <div class="scanner-metric" id="s1TripleRateBox">
-                            <div class="value" id="s1TripleRate">-</div>
-                            <div class="label">Triple Rate (/min)</div>
-                        </div>
-                        <div class="scanner-metric" id="s1DoubleTripleBox" style="margin-top:4px">
-                            <div class="value" id="s1DoubleTriple">-</div>
-                            <div class="label">Double→Triple %</div>
-                        </div>
-                        <div class="health-bar"><div class="health-fill" id="s1HealthFill" style="width:0%"></div></div>
-                        <div style="text-align:center;font-size:10px;font-weight:600" id="s1HealthText">-</div>
+                    <div style="background:var(--bg);padding:8px;border-radius:4px;text-align:center">
+                        <div style="font-size:8px;color:var(--muted)">PHASE</div>
+                        <div style="font-size:20px;font-weight:700" id="currentPhase">-</div>
                     </div>
-                    <div>
-                        <div style="font-size:9px;font-weight:600;color:var(--green);margin-bottom:4px">Strategy 2 Health</div>
-                        <div class="scanner-metric" id="s2StabilityBox">
-                            <div class="value" id="s2Stability">-</div>
-                            <div class="label">Coldest Stability %</div>
-                        </div>
-                        <div class="scanner-metric" id="s2SpikeBox" style="margin-top:4px">
-                            <div class="value" id="s2Spike">-</div>
-                            <div class="label">Cold Spike Rate %</div>
-                        </div>
-                        <div class="health-bar"><div class="health-fill" id="s2HealthFill" style="width:0%"></div></div>
-                        <div style="text-align:center;font-size:10px;font-weight:600" id="s2HealthText">-</div>
+                    <div style="background:var(--bg);padding:8px;border-radius:4px;text-align:center">
+                        <div style="font-size:8px;color:var(--muted)">P2 TRADES</div>
+                        <div style="font-size:20px;font-weight:700;color:var(--green)" id="cycleTradeCount">0/12</div>
                     </div>
                 </div>
-                
-                <div class="verdict scouting" id="marketVerdict">Connect and click START to begin</div>
-                
-                <div style="margin-top:8px">
-                    <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:9px">
-                        <input type="checkbox" id="skipScout" style="width:auto">
-                        <span>Skip scout (start trading immediately)</span>
-                    </label>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-                        <button class="btn-green" onclick="startBot()" id="startBotBtn" style="font-size:12px;padding:10px">🚀 START BOT</button>
-                        <button class="btn-red" onclick="stopBot()" id="stopBotBtn" style="font-size:12px;padding:10px">⏹ STOP</button>
+
+                <div class="cycle-progress">
+                    <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted)">
+                        <span>Phase 1 (Watching)</span>
+                        <span id="p1Status">Waiting for loss...</span>
                     </div>
+                    <div class="cycle-bar"><div class="cycle-fill p1" id="p1Bar" style="width:0%"></div></div>
+                    <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-top:4px">
+                        <span>Phase 2 (Trading)</span>
+                        <span id="p2Status">-</span>
+                    </div>
+                    <div class="cycle-bar"><div class="cycle-fill p2" id="p2Bar" style="width:0%"></div></div>
+                </div>
+
+                <div style="text-align:center;font-size:9px;margin-top:6px">
+                    <span style="color:var(--yellow)">● P1 Shadow: <span id="p1SimCount">0</span></span>
+                    <span style="margin:0 8px;color:var(--muted)">|</span>
+                    <span style="color:var(--green)">● P2 Real: <span id="p2RealCount">0</span></span>
                 </div>
             </div>
-            
+
             <!-- Digit Grid -->
             <div class="card highlight">
-                <h3>🔢 Digit Frequency <span id="currentMarket" style="color:var(--purple);margin-left:6px">--</span> <span id="tickCount" style="float:right;color:var(--cyan)">0 ticks</span></h3>
+                <h3>🔢 Digit Frequency <span id="currentMarket" style="color:var(--purple);margin-left:6px">1HZ10V</span> <span id="tickCount" style="float:right;color:var(--cyan)">0 ticks</span></h3>
                 <div style="display:flex;justify-content:center;align-items:center;gap:15px;margin-bottom:6px;padding:8px;background:var(--bg);border-radius:6px">
                     <div style="text-align:center">
                         <span style="font-size:8px;color:var(--muted)">PRICE</span>
@@ -372,62 +265,55 @@
                 </div>
                 <div class="digit-grid" id="digitGrid"></div>
             </div>
-            
-            <!-- Trading Status -->
-            <div class="card" id="tradingStatusCard" style="display:none">
-                <h3 id="tradingStatusTitle">📈 TRADING ACTIVE</h3>
-                <div class="stats-grid">
-                    <div class="stat"><div class="stat-val" id="sessionTrades">0</div><div class="stat-label">Trades</div></div>
-                    <div class="stat"><div class="stat-val" id="sessionWins">0</div><div class="stat-label">Wins</div></div>
-                    <div class="stat"><div class="stat-val" id="sessionStreak">0</div><div class="stat-label">Streak</div></div>
-                    <div class="stat"><div class="stat-val pos" id="sessionPL">$0</div><div class="stat-label">P/L</div></div>
-                </div>
-                <div style="font-size:9px;text-align:center;margin-top:4px" id="tradingNote"></div>
-            </div>
-            
-            <!-- Real Trades -->
+
+            <!-- Session Stats -->
             <div class="card">
-                <h3>💰 Real Trades <span id="realTradeCount" style="float:right;color:var(--green)">0</span></h3>
-                <div class="trades" id="realTrades">
+                <h3>📈 Session Stats</h3>
+                <div class="stats-grid">
+                    <div class="stat"><div class="stat-val" id="totalTrades">0</div><div class="stat-label">Real Trades</div></div>
+                    <div class="stat"><div class="stat-val" id="totalWins">0</div><div class="stat-label">Wins</div></div>
+                    <div class="stat"><div class="stat-val" id="winRate">0%</div><div class="stat-label">Win Rate</div></div>
+                    <div class="stat"><div class="stat-val pos" id="totalPL">$0.00</div><div class="stat-label">P/L</div></div>
+                </div>
+                <div style="display:flex;justify-content:center;gap:20px;margin-top:4px">
+                    <div><span style="font-size:8px;color:var(--muted)">Streak: </span><span style="font-size:12px;font-weight:700;color:var(--green)" id="currentStreak">0</span></div>
+                    <div><span style="font-size:8px;color:var(--muted)">Best: </span><span style="font-size:12px;font-weight:700;color:var(--orange)" id="bestStreak">0</span></div>
+                    <div><span style="font-size:8px;color:var(--muted)">P1 Losses Caught: </span><span style="font-size:12px;font-weight:700;color:var(--yellow)" id="p1LossesCaught">0</span></div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px">
+                <button class="btn-green" onclick="startBot()" id="startBotBtn" style="font-size:14px;padding:12px">🚀 START BOT</button>
+                <button class="btn-red" onclick="stopBot()" id="stopBotBtn" style="font-size:14px;padding:12px">⏹ STOP</button>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div>
+            <!-- All Trades (Real + Simulated) -->
+            <div class="card">
+                <h3>💰 Trade Log <span id="realTradeCount" style="float:right;color:var(--green)">0 real</span></h3>
+                <div class="trades" id="tradeLog">
                     <div style="text-align:center;color:var(--muted);padding:15px;font-size:10px">No trades yet</div>
                 </div>
             </div>
-        </div>
-        
-        <!-- RIGHT COLUMN -->
-        <div>
-            <!-- Simulated Trades -->
-            <div class="card simulated">
-                <h3>👻 SIMULATED TRADES (During Pause)</h3>
-                <div style="font-size:8px;color:var(--muted);margin-bottom:4px">Trades that WOULD have happened while paused</div>
-                
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-                    <div style="background:var(--bg);padding:6px;border-radius:4px;text-align:center">
-                        <div style="font-size:8px;color:var(--cyan)">S1 Simulated</div>
-                        <div style="font-size:11px;font-weight:600" id="s1SimSummary">0W/0L = $0</div>
-                    </div>
-                    <div style="background:var(--bg);padding:6px;border-radius:4px;text-align:center">
-                        <div style="font-size:8px;color:var(--green)">S2 Simulated</div>
-                        <div style="font-size:11px;font-weight:600" id="s2SimSummary">0W/0L = $0</div>
-                    </div>
-                </div>
-                
-                <div id="scannerImpact" style="text-align:center;padding:8px;background:var(--bg);border-radius:4px;margin-bottom:6px;display:none">
-                    <div style="font-size:9px;font-weight:700" id="scannerImpactText">Scanner Impact: $0</div>
-                </div>
-                
-                <div class="sim-trades" id="simTradesList">
-                    <div style="text-align:center;color:var(--muted);padding:10px;font-size:9px">No simulated trades</div>
+
+            <!-- Cycle History -->
+            <div class="card">
+                <h3>🔄 Cycle History</h3>
+                <div id="cycleHistory" style="font-size:9px">
+                    <div style="text-align:center;color:var(--muted);padding:10px">No cycles completed</div>
                 </div>
             </div>
-            
-            <!-- Session Data Recorder -->
+
+            <!-- Session Data -->
             <div class="card">
-                <h3>📊 SESSION DATA RECORDER</h3>
+                <h3>📊 Session Data</h3>
                 <div style="background:var(--bg);padding:8px;border-radius:4px;margin-bottom:6px">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center">
                         <div>
-                            <div style="font-size:8px;color:var(--muted)">TICKS RECORDED</div>
+                            <div style="font-size:8px;color:var(--muted)">TICKS</div>
                             <div style="font-size:16px;font-weight:700;color:var(--cyan)" id="ticksRecorded">0</div>
                         </div>
                         <div>
@@ -435,47 +321,12 @@
                             <div style="font-size:16px;font-weight:700;color:var(--cyan)" id="sessionDuration">0:00</div>
                         </div>
                     </div>
-                    <div style="text-align:center;margin-top:4px">
-                        <div style="font-size:8px;color:var(--muted)">MARKET HEALTHY</div>
-                        <div style="font-size:14px;font-weight:600;color:var(--green)" id="healthyPercent">--%</div>
-                    </div>
                 </div>
-                
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
                     <button class="btn-cyan" onclick="downloadTickData()">📥 Ticks CSV</button>
                     <button class="btn-orange" onclick="downloadTradeLog()">📥 Trades CSV</button>
                 </div>
                 <button class="btn-blue" onclick="downloadActivityLog()" style="width:100%;margin-top:4px">📥 Activity Log</button>
-            </div>
-            
-            <!-- Scanner Thresholds -->
-            <div class="card">
-                <h3>🎚️ Scanner Thresholds</h3>
-                <div style="font-size:8px;color:var(--cyan);margin-bottom:2px">Strategy 1</div>
-                <div class="row">
-                    <div><label>Max Triple/min</label><input type="number" id="scannerS1TripleMax" value="2.5" step="0.5"></div>
-                    <div><label>Max D→T %</label><input type="number" id="scannerS1DTMax" value="25"></div>
-                </div>
-                <div style="font-size:8px;color:var(--green);margin:4px 0 2px">Strategy 2</div>
-                <div class="row">
-                    <div><label>Min Stability %</label><input type="number" id="scannerS2StabilityMin" value="70"></div>
-                    <div><label>Max Spike %</label><input type="number" id="scannerS2SpikeMax" value="30"></div>
-                </div>
-            </div>
-            
-            <!-- Total Stats -->
-            <div class="card">
-                <h3>📈 Session Summary</h3>
-                <div class="stats-grid" style="grid-template-columns:1fr 1fr">
-                    <div class="stat"><div class="stat-val" id="totalTrades">0</div><div class="stat-label">Trades</div></div>
-                    <div class="stat"><div class="stat-val" id="totalWins">0</div><div class="stat-label">Wins</div></div>
-                    <div class="stat"><div class="stat-val" id="winRate">0%</div><div class="stat-label">Win Rate</div></div>
-                    <div class="stat"><div class="stat-val pos" id="totalPL">$0</div><div class="stat-label">P/L</div></div>
-                </div>
-                <div style="text-align:center;margin-top:4px">
-                    <span style="font-size:9px;color:var(--muted)">Best Streak: </span>
-                    <span style="font-size:12px;font-weight:700;color:var(--orange)" id="bestStreak">0</span>
-                </div>
             </div>
         </div>
     </div>
@@ -483,41 +334,34 @@
 
 <script>
 // ============================================================
-// 1. WEB WORKER KEEP-ALIVE (15s pings, background-tab immune)
+// RESILIENCE: Web Worker keep-alive (15s pings)
 // ============================================================
 let keepAliveWorker = null;
 function initKeepAliveWorker() {
     try {
-        const workerCode = `
-            let pingInterval = null;
-            self.onmessage = function(e) {
-                if (e.data === 'start') {
-                    if (pingInterval) clearInterval(pingInterval);
-                    pingInterval = setInterval(() => { self.postMessage('ping'); }, 15000);
-                } else if (e.data === 'stop') {
-                    if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
-                }
+        const blob = new Blob([`
+            let iv=null;
+            self.onmessage=function(e){
+                if(e.data==='start'){if(iv)clearInterval(iv);iv=setInterval(()=>self.postMessage('ping'),15000)}
+                else if(e.data==='stop'){if(iv){clearInterval(iv);iv=null}}
             };
-        `;
-        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        `], { type: 'application/javascript' });
         keepAliveWorker = new Worker(URL.createObjectURL(blob));
         keepAliveWorker.onmessage = (e) => {
-            if (e.data === 'ping' && state.ws && state.connected) {
-                try { state.ws.send(JSON.stringify({ ping: 1 })); } catch(err) { log('⚠️ Worker ping failed', 'alert'); }
+            if (e.data === 'ping' && S.ws && S.connected) {
+                try { S.ws.send(JSON.stringify({ ping: 1 })); } catch(err) {}
             }
         };
         document.getElementById('workerStatus').textContent = 'Worker: ✅';
         document.getElementById('workerStatus').style.color = 'var(--green)';
-        log('🔧 Web Worker keep-alive initialized', 'info');
     } catch(e) {
         document.getElementById('workerStatus').textContent = 'Worker: ❌';
         document.getElementById('workerStatus').style.color = 'var(--red)';
-        log('⚠️ Worker init failed: ' + e.message, 'alert');
     }
 }
 
 // ============================================================
-// 2. WAKE LOCK API (prevents screen/tab discard)
+// RESILIENCE: Wake Lock API
 // ============================================================
 let wakeLock = null;
 async function acquireWakeLock() {
@@ -530,7 +374,6 @@ async function acquireWakeLock() {
             });
             document.getElementById('wakeLockStatus').textContent = 'WakeLock: 🔒';
             document.getElementById('wakeLockStatus').style.color = 'var(--green)';
-            log('🔒 Wake Lock acquired', 'info');
         } else {
             document.getElementById('wakeLockStatus').textContent = 'WakeLock: N/A';
             document.getElementById('wakeLockStatus').style.color = 'var(--muted)';
@@ -541,21 +384,17 @@ async function acquireWakeLock() {
     }
 }
 
-function releaseWakeLock() {
-    if (wakeLock) { wakeLock.release(); wakeLock = null; }
-}
-
 // ============================================================
-// 3. INDEXEDDB AUTO-SAVE (every 5 minutes, survives tab crashes)
+// RESILIENCE: IndexedDB auto-save (5min)
 // ============================================================
-const IDB_NAME = 'DiffersBot_v7';
+const IDB_NAME = 'DiffersBot_v8';
 const IDB_STORE = 'state';
 let idbSaveInterval = null;
 
 function openIDB() {
     return new Promise((resolve, reject) => {
         const req = indexedDB.open(IDB_NAME, 1);
-        req.onupgradeneeded = (e) => { e.target.result.createObjectStore(IDB_STORE); };
+        req.onupgradeneeded = (e) => e.target.result.createObjectStore(IDB_STORE);
         req.onsuccess = (e) => resolve(e.target.result);
         req.onerror = (e) => reject(e.target.error);
     });
@@ -565,25 +404,13 @@ async function saveStateToIDB() {
     try {
         const db = await openIDB();
         const tx = db.transaction(IDB_STORE, 'readwrite');
-        const store = tx.objectStore(IDB_STORE);
-        const saveData = {
+        tx.objectStore(IDB_STORE).put({
             timestamp: Date.now(),
-            ticks: state.ticks.slice(-200),
-            s1: { ...state.s1 },
-            s2: { ...state.s2 },
-            totalTrades: state.totalTrades,
-            totalWins: state.totalWins,
-            totalPL: state.totalPL,
-            bestStreak: state.bestStreak,
-            currentStreak: state.currentStreak,
-            tradeLog: state.session.tradeLog.slice(-100),
-            tickLog: state.session.tickLog.slice(-500),
-            isTrading: state.isTrading,
-            botPhase: state.botPhase,
-            symbol: document.getElementById('symbol').value,
-            reconnectCount: state.reconnectCount
-        };
-        store.put(saveData, 'session');
+            totalTrades: S.totalTrades, totalWins: S.totalWins, totalPL: S.totalPL,
+            bestStreak: S.bestStreak, currentStreak: S.streak,
+            tradeLog: S.session.tradeLog.slice(-100),
+            reconnectCount: S.reconnectCount
+        }, 'session');
         tx.oncomplete = () => {
             document.getElementById('idbStatus').textContent = 'IDB: ✅ ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit' });
             document.getElementById('idbStatus').style.color = 'var(--green)';
@@ -595,130 +422,100 @@ async function saveStateToIDB() {
     }
 }
 
-async function loadStateFromIDB() {
-    try {
-        const db = await openIDB();
-        const tx = db.transaction(IDB_STORE, 'readonly');
-        const store = tx.objectStore(IDB_STORE);
-        return new Promise((resolve) => {
-            const req = store.get('session');
-            req.onsuccess = () => {
-                db.close();
-                const data = req.result;
-                if (data && Date.now() - data.timestamp < 30 * 60 * 1000) { // 30 min max age
-                    resolve(data);
-                } else {
-                    resolve(null);
-                }
-            };
-            req.onerror = () => { db.close(); resolve(null); };
-        });
-    } catch(e) { return null; }
-}
-
 function startIDBAutoSave() {
     if (idbSaveInterval) clearInterval(idbSaveInterval);
-    idbSaveInterval = setInterval(saveStateToIDB, 5 * 60 * 1000); // 5 minutes
+    idbSaveInterval = setInterval(saveStateToIDB, 5 * 60 * 1000);
     document.getElementById('idbStatus').textContent = 'IDB: ✅';
     document.getElementById('idbStatus').style.color = 'var(--green)';
-    log('💾 IndexedDB auto-save started (5min)', 'info');
 }
 
-function stopIDBAutoSave() {
-    if (idbSaveInterval) { clearInterval(idbSaveInterval); idbSaveInterval = null; }
-}
-
-
+// ============================================================
 // Init digit grid
+// ============================================================
 const digitGrid = document.getElementById('digitGrid');
 for (let i = 0; i < 10; i++) {
     digitGrid.innerHTML += `<div class="digit-box" id="digit-${i}"><div class="digit-num">${i}</div><div class="digit-pct" id="pct-${i}">--%</div></div>`;
 }
 
+// Update config labels
+document.getElementById('tradesPerCycle').addEventListener('input', function() {
+    document.getElementById('configTradesLabel').textContent = this.value;
+});
+document.getElementById('cyclesPerSession').addEventListener('input', function() {
+    document.getElementById('configCyclesLabel').textContent = this.value;
+});
+
+// ============================================================
 // STATE
-const state = {
+// ============================================================
+const S = {
     ws: null, connected: false, ticks: [], pendingContracts: new Map(), pipSize: 2,
-    isTrading: false, isPaused: false, pauseReason: '',
     lastPriceDigit: null, consecutiveCount: 1,
-    currentTradeDigit: null, currentTradeStrategy: null, currentTradeFreq: null,
-    
-    // Bot automation
-    botPhase: 'idle', // 'idle', 'waiting_ticks', 'scouting', 'trading'
-    autoMode: false,
-    
+    currentTradeDigit: null, currentTradeFreq: null,
+
+    // Bot
+    running: false,
+    phase: 0, // 0=idle, 1=watching, 2=trading
+    currentCycle: 0,
+    cycleTradesDone: 0,
+    p1SimCount: 0,
+    p1LossesCaught: 0,
+
+    // Strategy state
+    strat: {
+        lastColdest: null, stableSince: null, isStable: false,
+        waitingConfirm: false, confirmDigit: null,
+        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
+    },
+
+    // Simulated pending (Phase 1)
+    simPending: null, // { digit, freq, time }
+
+    // Session totals
+    totalTrades: 0, totalWins: 0, totalPL: 0, streak: 0, bestStreak: 0,
+    cycleHistory: [],
+
     // Connection resilience
-    lastTickTime: 0,
-    reconnectCount: 0,
-    reconnectAttempt: 0,
-    maxReconnectAttempts: 50,
-    reconnectTimer: null,
-    isReconnecting: false,
-    mainPingInterval: null,
-    staleCheckInterval: null,
-    savedToken: null,
-    
-    s1: { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false },
-    s2: { 
-        coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, 
-        sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, 
-        waitingConfirm: false, confirmDigit: null, limitReached: false,
-        digitCooldowns: {},
-        digitTradeCount: {},
-        recentDigitAppearances: []
-    },
-    
-    scanner: {
-        isScoutPhase: false, scoutStartTime: null, scoutDuration: 120000,
-        tripleRate: 0, doubleToTripleRate: 0, recentTriples: [], recentDoubles: [],
-        coldestStability: 0, coldSpikeRate: 0, coldestHistory: [], coldAppearances: [],
-        s1Health: 0, s2Health: 0, s1Healthy: false, s2Healthy: false
-    },
-    
-    simulated: { 
-        s1Trades: [], s2Trades: [], 
-        s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
-        s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 },
-        s1State: { phase: 1, tradeCount: 0, cooldownUntil: null },
-        s2State: { stableSince: null, isStable: false, lastColdest: null, waitingConfirm: false, confirmDigit: null },
-        pendingS1: null,
-        pendingS2: null
-    },
-    session: { startTime: null, tickLog: [], tradeLog: [], healthyTicks: 0, totalTicks: 0 },
-    
-    currentStreak: 0, bestStreak: 0, activityLog: [], totalTrades: 0, totalWins: 0, totalPL: 0
+    lastTickTime: 0, reconnectCount: 0, reconnectAttempt: 0,
+    maxReconnectAttempts: 50, reconnectTimer: null, isReconnecting: false,
+    mainPingInterval: null, staleCheckInterval: null, savedToken: null,
+
+    session: { startTime: null, tickLog: [], tradeLog: [], totalTicks: 0 },
+    activityLog: []
 };
 
+// ============================================================
 // HELPERS
-function extractDigit(quote, pipSize) { return Math.round(quote * Math.pow(10, pipSize)) % 10; }
+// ============================================================
+function extractDigit(q, p) { return Math.round(q * Math.pow(10, p)) % 10; }
 
 function log(msg, type = '') {
     const el = document.getElementById('log');
     const time = new Date().toLocaleTimeString('en-US', { timeZone: 'America/Toronto' });
-    state.activityLog.push({ time: new Date().toLocaleString('en-US', { timeZone: 'America/Toronto' }), message: msg, type });
-    if (state.activityLog.length > 5000) state.activityLog.shift();
+    S.activityLog.push({ time: new Date().toLocaleString('en-US', { timeZone: 'America/Toronto' }), message: msg, type });
+    if (S.activityLog.length > 5000) S.activityLog.shift();
     el.innerHTML = `<div class="${type}">[${time}] ${msg}</div>` + el.innerHTML;
-    if (el.children.length > 80) el.removeChild(el.lastChild);
+    if (el.children.length > 100) el.removeChild(el.lastChild);
 }
 
 function getTimestamp() { return new Date().toLocaleString('en-US', { timeZone: 'America/Toronto' }); }
 
 function updateTorontoTime() {
-    const t = new Date().toLocaleString('en-US', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    document.getElementById('torontoTime').textContent = t + ' EST';
+    document.getElementById('torontoTime').textContent = new Date().toLocaleString('en-US', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' EST';
 }
 setInterval(updateTorontoTime, 1000);
 
 // ============================================================
-// 4. STALE CONNECTION DETECTION (45s no-data triggers reconnect)
+// RESILIENCE: Stale detection (45s)
 // ============================================================
 function startStaleDetection() {
-    if (state.staleCheckInterval) clearInterval(state.staleCheckInterval);
-    state.staleCheckInterval = setInterval(() => {
-        if (!state.connected || !state.lastTickTime) return;
-        const elapsed = Date.now() - state.lastTickTime;
+    if (S.staleCheckInterval) clearInterval(S.staleCheckInterval);
+    S.staleCheckInterval = setInterval(() => {
+        if (!S.connected || !S.lastTickTime) return;
+        const elapsed = Date.now() - S.lastTickTime;
         if (elapsed > 45000) {
             document.getElementById('staleBadge').style.display = 'inline';
-            log(`⚠️ STALE: No data for ${Math.round(elapsed/1000)}s — forcing reconnect`, 'alert');
+            log(`⚠️ STALE: No data ${Math.round(elapsed/1000)}s — reconnecting`, 'alert');
             forceReconnect();
         } else {
             document.getElementById('staleBadge').style.display = 'none';
@@ -727,1051 +524,579 @@ function startStaleDetection() {
 }
 
 // ============================================================
-// 5. AUTO-RECONNECT WITH EXPONENTIAL BACKOFF
-//    2s → 4s → 8s → 16s → 30s cap, up to 50 attempts
+// RESILIENCE: Auto-reconnect (exponential backoff)
 // ============================================================
-function getReconnectDelay() {
-    const base = 2000;
-    const delay = Math.min(base * Math.pow(2, state.reconnectAttempt), 30000);
-    return delay;
-}
+function getReconnectDelay() { return Math.min(2000 * Math.pow(2, S.reconnectAttempt), 30000); }
 
 function forceReconnect() {
-    if (state.isReconnecting) return;
-    state.isReconnecting = true;
-    
-    // Close existing connection
-    try { if (state.ws) { state.ws.onclose = null; state.ws.close(); } } catch(e) {}
-    state.ws = null;
-    state.connected = false;
+    if (S.isReconnecting) return;
+    S.isReconnecting = true;
+    try { if (S.ws) { S.ws.onclose = null; S.ws.close(); } } catch(e) {}
+    S.ws = null; S.connected = false;
     document.getElementById('dot').classList.remove('on');
     document.getElementById('status').textContent = 'Reconnecting...';
-    
     attemptReconnect();
 }
 
 function attemptReconnect() {
-    if (state.reconnectAttempt >= state.maxReconnectAttempts) {
-        log(`❌ Max reconnect attempts (${state.maxReconnectAttempts}) reached. Stopping.`, 'loss');
-        state.isReconnecting = false;
+    if (S.reconnectAttempt >= S.maxReconnectAttempts) {
+        log(`❌ Max reconnect attempts reached`, 'loss');
+        S.isReconnecting = false;
         document.getElementById('status').textContent = 'Failed';
         return;
     }
-    
     const delay = getReconnectDelay();
-    log(`🔄 Reconnect attempt ${state.reconnectAttempt + 1}/${state.maxReconnectAttempts} in ${delay/1000}s`, 'alert');
-    
-    state.reconnectTimer = setTimeout(() => {
-        if (!state.savedToken) { state.isReconnecting = false; return; }
-        
+    log(`🔄 Reconnect ${S.reconnectAttempt + 1}/${S.maxReconnectAttempts} in ${delay/1000}s`, 'alert');
+
+    S.reconnectTimer = setTimeout(() => {
+        if (!S.savedToken) { S.isReconnecting = false; return; }
         try {
-            state.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
-            
-            state.ws.onopen = () => {
-                log('🔌 Reconnected!', 'info');
-                state.ws.send(JSON.stringify({ authorize: state.savedToken }));
-            };
-            
-            state.ws.onmessage = (msg) => {
-                const data = JSON.parse(msg.data);
-                if (data.error) { log(`Error: ${data.error.message}`, 'loss'); return; }
-                
-                if (data.authorize) {
-                    state.connected = true;
-                    state.isReconnecting = false;
-                    state.reconnectAttempt = 0;
-                    state.reconnectCount++;
-                    
-                    document.getElementById('dot').classList.add('on');
-                    document.getElementById('status').textContent = 'Online';
-                    document.getElementById('balance').textContent = '$' + parseFloat(data.authorize.balance).toFixed(2);
-                    document.getElementById('balanceDisplay').textContent = '$' + parseFloat(data.authorize.balance).toFixed(2);
-                    document.getElementById('staleBadge').style.display = 'none';
-                    updateReconnectBadge();
-                    
-                    log(`✅ Re-authorized (reconnect #${state.reconnectCount})`, 'win');
-                    state.ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-                    subscribeTicks();
-                    
-                    // Re-subscribe to any pending contracts
-                    for (const [contractId] of state.pendingContracts) {
-                        state.ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 }));
-                    }
-                }
-                if (data.balance) {
-                    document.getElementById('balance').textContent = '$' + parseFloat(data.balance.balance).toFixed(2);
-                    document.getElementById('balanceDisplay').textContent = '$' + parseFloat(data.balance.balance).toFixed(2);
-                }
-                if (data.tick) processTick(data.tick);
-                if (data.buy) {
-                    state.pendingContracts.set(data.buy.contract_id, { digit: state.currentTradeDigit, stake: parseFloat(document.getElementById('stake').value), strategy: state.currentTradeStrategy, freq: state.currentTradeFreq });
-                    state.ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 }));
-                }
-                if (data.proposal_open_contract?.status === 'won' || data.proposal_open_contract?.status === 'lost') processTradeResult(data.proposal_open_contract);
-            };
-            
-            state.ws.onclose = () => {
-                state.connected = false;
+            S.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+            S.ws.onopen = () => { S.ws.send(JSON.stringify({ authorize: S.savedToken })); };
+            S.ws.onmessage = handleMessage;
+            S.ws.onclose = () => {
+                S.connected = false;
                 document.getElementById('dot').classList.remove('on');
-                document.getElementById('status').textContent = 'Disconnected';
-                
-                if (state.isTrading || state.autoMode) {
-                    state.reconnectAttempt++;
-                    state.isReconnecting = true;
-                    attemptReconnect();
-                } else {
-                    log('Disconnected', 'loss');
-                }
+                if (S.running) { S.reconnectAttempt++; S.isReconnecting = true; attemptReconnect(); }
             };
-            
-            state.ws.onerror = () => {
-                state.reconnectAttempt++;
-                attemptReconnect();
-            };
-            
-        } catch(e) {
-            state.reconnectAttempt++;
-            attemptReconnect();
-        }
+            S.ws.onerror = () => { S.reconnectAttempt++; attemptReconnect(); };
+        } catch(e) { S.reconnectAttempt++; attemptReconnect(); }
     }, delay);
 }
 
 function updateReconnectBadge() {
-    const badge = document.getElementById('reconnectBadge');
-    if (state.reconnectCount > 0) {
-        badge.style.display = 'inline';
-        badge.textContent = `🔄 ${state.reconnectCount}`;
-    } else {
-        badge.style.display = 'none';
-    }
+    const b = document.getElementById('reconnectBadge');
+    if (S.reconnectCount > 0) { b.style.display = 'inline'; b.textContent = `🔄 ${S.reconnectCount}`; }
+    else b.style.display = 'none';
 }
 
-// ============================================================
-// 6. REGULAR PING INTERVAL (20s backup from main thread)
-// ============================================================
+// RESILIENCE: Main thread ping (20s)
 function startMainPing() {
-    if (state.mainPingInterval) clearInterval(state.mainPingInterval);
-    state.mainPingInterval = setInterval(() => {
-        if (state.ws && state.connected && state.ws.readyState === WebSocket.OPEN) {
-            try { state.ws.send(JSON.stringify({ ping: 1 })); } catch(e) {}
+    if (S.mainPingInterval) clearInterval(S.mainPingInterval);
+    S.mainPingInterval = setInterval(() => {
+        if (S.ws && S.connected && S.ws.readyState === WebSocket.OPEN) {
+            try { S.ws.send(JSON.stringify({ ping: 1 })); } catch(e) {}
         }
     }, 20000);
 }
 
-function stopMainPing() {
-    if (state.mainPingInterval) { clearInterval(state.mainPingInterval); state.mainPingInterval = null; }
-}
-
-// ============================================================
-// 7. VISIBILITY API HANDLER (re-checks on tab refocus)
-// ============================================================
+// RESILIENCE: Visibility API
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-        // Tab became visible again
-        log('👁️ Tab refocused', 'info');
-        
-        // Re-acquire wake lock (it gets released on tab hide)
-        if (state.isTrading || state.autoMode) acquireWakeLock();
-        
-        // Check if connection is stale
-        if (state.connected && state.lastTickTime) {
-            const elapsed = Date.now() - state.lastTickTime;
-            if (elapsed > 30000) {
-                log(`⚠️ Stale after refocus (${Math.round(elapsed/1000)}s) — reconnecting`, 'alert');
-                forceReconnect();
-            }
-        } else if (!state.connected && (state.isTrading || state.autoMode)) {
-            log('⚠️ Not connected on refocus — reconnecting', 'alert');
+        if (S.running) acquireWakeLock();
+        if (S.connected && S.lastTickTime && Date.now() - S.lastTickTime > 30000) {
+            log('⚠️ Stale on refocus — reconnecting', 'alert');
+            forceReconnect();
+        } else if (!S.connected && S.running) {
             forceReconnect();
         }
     } else {
-        // Tab hidden - ensure background mode audio
-        if (state.isTrading && document.getElementById('backgroundMode').checked) {
-            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
-            log('📱 Running in background...', 'info');
-        }
+        if (S.running && document.getElementById('backgroundMode').checked && audioContext && audioContext.state === 'suspended') audioContext.resume();
     }
 });
 
-
+// ============================================================
 // CONNECTION
+// ============================================================
+function handleMessage(msg) {
+    const data = JSON.parse(msg.data);
+    if (data.error) { log(`Error: ${data.error.message}`, 'loss'); return; }
+
+    if (data.authorize) {
+        S.connected = true;
+        S.isReconnecting = false;
+        S.reconnectAttempt = 0;
+        if (S.reconnectCount > 0 || S.savedToken) S.reconnectCount++;
+        document.getElementById('dot').classList.add('on');
+        document.getElementById('status').textContent = 'Online';
+        document.getElementById('balance').textContent = '$' + parseFloat(data.authorize.balance).toFixed(2);
+        document.getElementById('balanceDisplay').textContent = '$' + parseFloat(data.authorize.balance).toFixed(2);
+        document.getElementById('staleBadge').style.display = 'none';
+        updateReconnectBadge();
+        if (S.reconnectCount > 1) log(`✅ Re-authorized (#${S.reconnectCount})`, 'win');
+        else log('✅ Authorized', 'win');
+        S.ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+        subscribeTicks();
+        for (const [cid] of S.pendingContracts) S.ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: cid, subscribe: 1 }));
+    }
+    if (data.balance) {
+        document.getElementById('balance').textContent = '$' + parseFloat(data.balance.balance).toFixed(2);
+        document.getElementById('balanceDisplay').textContent = '$' + parseFloat(data.balance.balance).toFixed(2);
+    }
+    if (data.tick) processTick(data.tick);
+    if (data.buy) {
+        S.pendingContracts.set(data.buy.contract_id, { digit: S.currentTradeDigit, stake: parseFloat(document.getElementById('stake').value), freq: S.currentTradeFreq });
+        S.ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 }));
+    }
+    if (data.proposal_open_contract?.status === 'won' || data.proposal_open_contract?.status === 'lost') processTradeResult(data.proposal_open_contract);
+}
+
 function connect() {
     const token = document.getElementById('token').value;
     if (!token) return log('Enter API token', 'loss');
-    state.savedToken = token;
-    
-    state.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
-    state.ws.onopen = () => { log('🔌 Connected', 'info'); state.ws.send(JSON.stringify({ authorize: token })); };
-    
-    state.ws.onmessage = (msg) => {
-        const data = JSON.parse(msg.data);
-        if (data.error) return log(`Error: ${data.error.message}`, 'loss');
-        
-        if (data.authorize) {
-            state.connected = true;
-            state.reconnectAttempt = 0;
-            document.getElementById('dot').classList.add('on');
-            document.getElementById('status').textContent = 'Online';
-            document.getElementById('balance').textContent = '$' + parseFloat(data.authorize.balance).toFixed(2);
-            document.getElementById('balanceDisplay').textContent = '$' + parseFloat(data.authorize.balance).toFixed(2);
-            log(`✅ Authorized`, 'win');
-            state.ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-            subscribeTicks();
-            
-            // Start all resilience systems
-            if (keepAliveWorker) keepAliveWorker.postMessage('start');
-            startMainPing();
-            startStaleDetection();
-            startIDBAutoSave();
-            acquireWakeLock();
-        }
-        if (data.balance) {
-            document.getElementById('balance').textContent = '$' + parseFloat(data.balance.balance).toFixed(2);
-            document.getElementById('balanceDisplay').textContent = '$' + parseFloat(data.balance.balance).toFixed(2);
-        }
-        if (data.tick) processTick(data.tick);
-        if (data.buy) {
-            state.pendingContracts.set(data.buy.contract_id, { digit: state.currentTradeDigit, stake: parseFloat(document.getElementById('stake').value), strategy: state.currentTradeStrategy, freq: state.currentTradeFreq });
-            state.ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 }));
-        }
-        if (data.proposal_open_contract?.status === 'won' || data.proposal_open_contract?.status === 'lost') processTradeResult(data.proposal_open_contract);
-    };
-    
-    state.ws.onclose = () => {
-        state.connected = false;
+    S.savedToken = token;
+    S.reconnectCount = 0;
+    S.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+    S.ws.onopen = () => { log('🔌 Connected', 'info'); S.ws.send(JSON.stringify({ authorize: token })); };
+    S.ws.onmessage = handleMessage;
+    S.ws.onclose = () => {
+        S.connected = false;
         document.getElementById('dot').classList.remove('on');
         document.getElementById('status').textContent = 'Disconnected';
-        
-        // Auto-reconnect if trading was active
-        if (state.isTrading || state.autoMode) {
-            log('⚠️ Connection lost during trading — auto-reconnecting', 'alert');
-            state.reconnectAttempt = 0;
-            state.isReconnecting = true;
-            attemptReconnect();
-        } else {
-            log('Disconnected', 'loss');
-        }
+        if (S.running) { log('⚠️ Lost connection — auto-reconnecting', 'alert'); S.reconnectAttempt = 0; S.isReconnecting = true; attemptReconnect(); }
+        else log('Disconnected', 'loss');
     };
-    
-    state.ws.onerror = () => {
-        log('⚠️ WebSocket error', 'loss');
-    };
+    S.ws.onerror = () => log('⚠️ WebSocket error', 'loss');
+    if (keepAliveWorker) keepAliveWorker.postMessage('start');
+    startMainPing(); startStaleDetection(); startIDBAutoSave(); acquireWakeLock();
 }
 
 function subscribeTicks() {
-    const symbol = document.getElementById('symbol').value;
-    state.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
-    document.getElementById('currentMarket').textContent = symbol;
-    log(`📊 Subscribed to ${symbol}`, 'info');
+    S.ws.send(JSON.stringify({ ticks: document.getElementById('symbol').value, subscribe: 1 }));
+    document.getElementById('currentMarket').textContent = document.getElementById('symbol').value;
 }
 
 function changePair() {
-    if (state.connected) { 
-        state.ws.send(JSON.stringify({ forget_all: 'ticks' })); 
-        state.ticks = []; 
-        subscribeTicks(); 
-        document.getElementById('currentMarket').textContent = document.getElementById('symbol').value;
-    }
+    if (S.connected) { S.ws.send(JSON.stringify({ forget_all: 'ticks' })); S.ticks = []; subscribeTicks(); }
 }
 
+// ============================================================
 // TICK PROCESSING
+// ============================================================
 function processTick(tick) {
     const price = tick.quote;
-    const digit = extractDigit(price, state.pipSize);
+    const digit = extractDigit(price, S.pipSize);
     const ticksToAnalyze = parseInt(document.getElementById('ticksToAnalyze').value) || 100;
-    
-    state.lastTickTime = Date.now(); // For stale detection
-    
-    state.ticks.push({ price, digit, time: Date.now() });
-    if (state.ticks.length > ticksToAnalyze + 50) state.ticks.shift();
-    
+
+    S.lastTickTime = Date.now();
+    S.ticks.push({ price, digit, time: Date.now() });
+    if (S.ticks.length > ticksToAnalyze + 50) S.ticks.shift();
+
     document.getElementById('priceDisplay').textContent = price.toFixed(5);
     document.getElementById('lastDigitDisplay').textContent = digit;
-    document.getElementById('tickCount').textContent = Math.min(state.ticks.length, ticksToAnalyze) + ' ticks';
-    
-    checkAutoProgress();
-    
-    const isDouble = (digit === state.lastPriceDigit);
-    state.consecutiveCount = isDouble ? state.consecutiveCount + 1 : 1;
-    const isTriple = (state.consecutiveCount === 3);
-    
-    updateDigitDisplay(digit, isDouble, isTriple);
-    
-    const recent = state.ticks.slice(-ticksToAnalyze);
+    document.getElementById('tickCount').textContent = Math.min(S.ticks.length, ticksToAnalyze) + ' ticks';
+
+    const isDouble = (digit === S.lastPriceDigit);
+    S.consecutiveCount = isDouble ? S.consecutiveCount + 1 : 1;
+
+    updateDigitDisplay(digit, isDouble, S.consecutiveCount === 3);
+
+    const recent = S.ticks.slice(-ticksToAnalyze);
     if (recent.length >= ticksToAnalyze) {
         const counts = [0,0,0,0,0,0,0,0,0,0];
         recent.forEach(t => counts[t.digit]++);
         const freqs = counts.map(c => (c / ticksToAnalyze) * 100);
         updateDigitFrequencies(freqs);
-        recordTick(price, digit, freqs, isDouble, isTriple);
-        updateScannerMetrics(digit, freqs, isDouble, isTriple);
-        
-        if (state.isTrading && !state.isPaused) processTrading(digit, freqs, isDouble, isTriple);
-        else if (state.isPaused) processSimulatedTrading(digit, freqs, isDouble, isTriple);
+        recordTick(price, digit, freqs, isDouble);
+
+        if (S.running && S.phase > 0) processStrategy(digit, freqs);
     }
-    
-    state.lastPriceDigit = digit;
+
+    S.lastPriceDigit = digit;
 }
 
 function updateDigitDisplay(currentDigit, isDouble, isTriple) {
     for (let i = 0; i < 10; i++) document.getElementById(`digit-${i}`).classList.remove('just-occurred', 'doubled', 'tripled', 'coldest');
-    const box = document.getElementById(`digit-${currentDigit}`);
-    box.classList.add(isTriple ? 'tripled' : (isDouble ? 'doubled' : 'just-occurred'));
+    document.getElementById(`digit-${currentDigit}`).classList.add(isTriple ? 'tripled' : (isDouble ? 'doubled' : 'just-occurred'));
 }
 
 function updateDigitFrequencies(freqs) {
     const minFreq = Math.min(...freqs);
     for (let i = 0; i < 10; i++) {
-        const pctEl = document.getElementById(`pct-${i}`);
-        pctEl.textContent = freqs[i].toFixed(1) + '%';
-        pctEl.className = 'digit-pct' + (freqs[i] === minFreq ? ' cold' : '');
+        const el = document.getElementById(`pct-${i}`);
+        el.textContent = freqs[i].toFixed(1) + '%';
+        el.className = 'digit-pct' + (freqs[i] === minFreq ? ' cold' : '');
         if (freqs[i] === minFreq) document.getElementById(`digit-${i}`).classList.add('coldest');
     }
 }
 
-function recordTick(price, digit, freqs, isDouble, isTriple) {
-    if (!state.session.startTime) state.session.startTime = Date.now();
-    state.session.totalTicks++;
-    if (state.scanner.s1Healthy || state.scanner.s2Healthy) state.session.healthyTicks++;
-    
-    const market = document.getElementById('symbol').value;
-    
-    state.session.tickLog.push({
-        timestamp: getTimestamp(), market, price, digit,
-        freq_0: freqs[0].toFixed(1), freq_1: freqs[1].toFixed(1), freq_2: freqs[2].toFixed(1), freq_3: freqs[3].toFixed(1), freq_4: freqs[4].toFixed(1),
-        freq_5: freqs[5].toFixed(1), freq_6: freqs[6].toFixed(1), freq_7: freqs[7].toFixed(1), freq_8: freqs[8].toFixed(1), freq_9: freqs[9].toFixed(1),
+function recordTick(price, digit, freqs, isDouble) {
+    if (!S.session.startTime) S.session.startTime = Date.now();
+    S.session.totalTicks++;
+    S.session.tickLog.push({
+        timestamp: getTimestamp(), market: document.getElementById('symbol').value, price, digit,
+        freq_0: freqs[0].toFixed(1), freq_1: freqs[1].toFixed(1), freq_2: freqs[2].toFixed(1),
+        freq_3: freqs[3].toFixed(1), freq_4: freqs[4].toFixed(1), freq_5: freqs[5].toFixed(1),
+        freq_6: freqs[6].toFixed(1), freq_7: freqs[7].toFixed(1), freq_8: freqs[8].toFixed(1),
+        freq_9: freqs[9].toFixed(1),
         coldest: freqs.indexOf(Math.min(...freqs)), coldest_freq: Math.min(...freqs).toFixed(1),
-        is_double: isDouble ? 'Yes' : 'No', is_triple: isTriple ? 'Yes' : 'No',
-        s1_health: state.scanner.s1Health, s2_health: state.scanner.s2Health,
-        market_status: state.isPaused ? 'PAUSED' : (state.isTrading ? 'TRADING' : 'IDLE')
+        is_double: isDouble ? 'Yes' : 'No', phase: S.phase
     });
-    
-    if (state.session.tickLog.length > 50000) state.session.tickLog = state.session.tickLog.slice(-40000);
-    document.getElementById('ticksRecorded').textContent = state.session.tickLog.length;
-    
-    if (state.session.startTime) {
-        const d = Math.floor((Date.now() - state.session.startTime) / 1000);
+    if (S.session.tickLog.length > 50000) S.session.tickLog = S.session.tickLog.slice(-40000);
+    document.getElementById('ticksRecorded').textContent = S.session.tickLog.length;
+    if (S.session.startTime) {
+        const d = Math.floor((Date.now() - S.session.startTime) / 1000);
         document.getElementById('sessionDuration').textContent = `${Math.floor(d/60)}:${(d%60).toString().padStart(2,'0')}`;
     }
-    if (state.session.totalTicks > 0) document.getElementById('healthyPercent').textContent = (state.session.healthyTicks / state.session.totalTicks * 100).toFixed(1) + '%';
 }
 
-// SCANNER
-function updateScannerMetrics(digit, freqs, isDouble, isTriple) {
-    const now = Date.now(), twoMinAgo = now - 120000;
-    
-    if (isTriple) state.scanner.recentTriples.push(now);
-    state.scanner.recentTriples = state.scanner.recentTriples.filter(t => t > twoMinAgo);
-    
-    if (isDouble && state.consecutiveCount === 2) state.scanner.recentDoubles.push({ time: now, digit, becameTriple: false });
-    if (isTriple) { const d = state.scanner.recentDoubles.find(d => d.digit === digit && !d.becameTriple); if (d) d.becameTriple = true; }
-    state.scanner.recentDoubles = state.scanner.recentDoubles.filter(d => d.time > twoMinAgo);
-    
-    const minutes = Math.max(0.5, Math.min(2, (now - (state.session.startTime || now)) / 60000));
-    state.scanner.tripleRate = state.scanner.recentTriples.length / minutes;
-    const dc = state.scanner.recentDoubles.length, tc = state.scanner.recentDoubles.filter(d => d.becameTriple).length;
-    state.scanner.doubleToTripleRate = dc > 0 ? (tc / dc * 100) : 0;
-    
-    const coldest = freqs.indexOf(Math.min(...freqs));
-    state.scanner.coldestHistory.push(coldest);
-    if (state.scanner.coldestHistory.length > 20) state.scanner.coldestHistory.shift();
-    
-    if (state.scanner.coldestHistory.length >= 2) {
-        let stable = 0;
-        for (let i = 1; i < state.scanner.coldestHistory.length; i++) if (state.scanner.coldestHistory[i] === state.scanner.coldestHistory[i-1]) stable++;
-        state.scanner.coldestStability = (stable / (state.scanner.coldestHistory.length - 1)) * 100;
-    }
-    
-    const coldThreshold = parseFloat(document.getElementById('strat2Threshold').value) || 6;
-    if (freqs[digit] <= coldThreshold) state.scanner.coldAppearances.push({ time: now, digit, spiked: false });
-    const rc = state.scanner.coldAppearances.slice(-10);
-    for (let i = 0; i < rc.length - 1; i++) for (let j = i + 1; j < rc.length; j++) if (rc[i].digit === rc[j].digit && !rc[i].spiked) rc[i].spiked = true;
-    state.scanner.coldAppearances = state.scanner.coldAppearances.filter(c => c.time > twoMinAgo);
-    const cc = state.scanner.coldAppearances.length, sc = state.scanner.coldAppearances.filter(c => c.spiked).length;
-    state.scanner.coldSpikeRate = cc > 0 ? (sc / cc * 100) : 0;
-    
-    calculateHealthScores();
-    updateScannerUI();
-    if (state.isTrading) checkMarketHealth();
-}
-
-function calculateHealthScores() {
-    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
-    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 70, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
-    
-    state.scanner.s1Health = Math.round((Math.max(0, 100 - state.scanner.tripleRate / s1tm * 50) + Math.max(0, 100 - state.scanner.doubleToTripleRate / s1dm * 50)) / 2);
-    state.scanner.s1Healthy = state.scanner.tripleRate <= s1tm && state.scanner.doubleToTripleRate <= s1dm;
-    
-    state.scanner.s2Health = Math.round((Math.min(100, state.scanner.coldestStability / s2sm * 100) + Math.max(0, 100 - state.scanner.coldSpikeRate / s2pm * 50)) / 2);
-    state.scanner.s2Healthy = state.scanner.coldestStability >= s2sm && state.scanner.coldSpikeRate <= s2pm;
-}
-
-function updateScannerUI() {
-    document.getElementById('s1TripleRate').textContent = state.scanner.tripleRate.toFixed(1);
-    document.getElementById('s1DoubleTriple').textContent = state.scanner.doubleToTripleRate.toFixed(0) + '%';
-    document.getElementById('s2Stability').textContent = state.scanner.coldestStability.toFixed(0) + '%';
-    document.getElementById('s2Spike').textContent = state.scanner.coldSpikeRate.toFixed(0) + '%';
-    
-    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5, s1dm = parseFloat(document.getElementById('scannerS1DTMax').value) || 25;
-    const s2sm = parseFloat(document.getElementById('scannerS2StabilityMin').value) || 70, s2pm = parseFloat(document.getElementById('scannerS2SpikeMax').value) || 30;
-    
-    setMetricClass('s1TripleRateBox', state.scanner.tripleRate <= s1tm * 0.7 ? 'good' : (state.scanner.tripleRate <= s1tm ? 'caution' : 'bad'));
-    setMetricClass('s1DoubleTripleBox', state.scanner.doubleToTripleRate <= s1dm * 0.7 ? 'good' : (state.scanner.doubleToTripleRate <= s1dm ? 'caution' : 'bad'));
-    setMetricClass('s2StabilityBox', state.scanner.coldestStability >= s2sm ? 'good' : (state.scanner.coldestStability >= s2sm * 0.7 ? 'caution' : 'bad'));
-    setMetricClass('s2SpikeBox', state.scanner.coldSpikeRate <= s2pm * 0.7 ? 'good' : (state.scanner.coldSpikeRate <= s2pm ? 'caution' : 'bad'));
-    
-    document.getElementById('s1HealthFill').style.width = state.scanner.s1Health + '%';
-    document.getElementById('s1HealthFill').className = 'health-fill ' + (state.scanner.s1Healthy ? 'good' : (state.scanner.s1Health >= 50 ? 'caution' : 'bad'));
-    document.getElementById('s1HealthText').textContent = state.scanner.s1Health + '% ' + (state.scanner.s1Healthy ? '✅' : '❌');
-    document.getElementById('s1HealthText').style.color = state.scanner.s1Healthy ? 'var(--green)' : 'var(--red)';
-    
-    document.getElementById('s2HealthFill').style.width = state.scanner.s2Health + '%';
-    document.getElementById('s2HealthFill').className = 'health-fill ' + (state.scanner.s2Healthy ? 'good' : (state.scanner.s2Health >= 50 ? 'caution' : 'bad'));
-    document.getElementById('s2HealthText').textContent = state.scanner.s2Health + '% ' + (state.scanner.s2Healthy ? '✅' : '❌');
-    document.getElementById('s2HealthText').style.color = state.scanner.s2Healthy ? 'var(--green)' : 'var(--red)';
-    
-    if (!state.scanner.isScoutPhase && state.isTrading) updateMarketVerdict();
-}
-
-function setMetricClass(id, cls) { const el = document.getElementById(id); el.classList.remove('good', 'caution', 'bad'); el.classList.add(cls); }
-
-function updateMarketVerdict() {
-    const v = document.getElementById('marketVerdict');
-    if (state.isPaused) { v.className = 'verdict bad'; v.innerHTML = `⏸️ PAUSED - ${state.pauseReason}<br><span style="font-size:10px">Simulating trades...</span>`; }
-    else { v.className = 'verdict good'; v.innerHTML = '✅ TRADING ACTIVE'; }
-}
-
-function checkMarketHealth() {
-    const s1e = document.getElementById('strat1Enabled').checked, s2e = document.getElementById('strat2Enabled').checked;
-    const s1m = document.querySelector('input[name="s1EntryMode"]:checked').value, s2m = document.querySelector('input[name="s2EntryMode"]:checked').value;
-    const s1ns = s1m === 'scanner' || s1m === 'both', s2ns = s2m === 'scanner' || s2m === 'both';
-    
-    let shouldPause = false, reason = '';
-    if (s1e && s1ns && !state.scanner.s1Healthy && !state.s1.limitReached) { shouldPause = true; reason = 'S1 unhealthy'; }
-    if (s2e && s2ns && !state.scanner.s2Healthy && !state.s2.limitReached) { reason = shouldPause ? 'S1 & S2 unhealthy' : 'S2 unhealthy'; shouldPause = true; }
-    
-    if ((!s1e || state.s1.limitReached) && (!s2e || state.s2.limitReached)) { stopBot(); log('🎯 All limits reached!', 'win'); return; }
-    
-    if (shouldPause && !state.isPaused) { state.isPaused = true; state.pauseReason = reason; log(`⏸️ PAUSED: ${reason}`, 'scanner'); document.getElementById('tradingStatusCard').classList.add('paused'); document.getElementById('tradingStatusTitle').textContent = '⏸️ PAUSED'; }
-    else if (!shouldPause && state.isPaused) { state.isPaused = false; state.pauseReason = ''; log('▶️ RESUMED', 'scanner'); document.getElementById('tradingStatusCard').classList.remove('paused'); document.getElementById('tradingStatusTitle').textContent = '📈 TRADING'; }
-    
-    updateMarketVerdict();
-}
-
-// SCOUT
-function startScout() {
-    if (!state.connected) return log('Connect first!', 'loss');
-    const ticks = parseInt(document.getElementById('ticksToAnalyze').value) || 100;
-    if (state.ticks.length < ticks) return log(`Need ${ticks} ticks first`, 'loss');
-    
-    state.scanner.isScoutPhase = true; state.scanner.scoutStartTime = Date.now();
-    state.scanner.recentTriples = []; state.scanner.recentDoubles = []; state.scanner.coldestHistory = []; state.scanner.coldAppearances = [];
-    
-    document.getElementById('scoutProgress').style.display = 'block';
-    document.getElementById('scannerStatus').textContent = 'SCOUTING...';
-    document.getElementById('marketVerdict').className = 'verdict scouting';
-    document.getElementById('marketVerdict').innerHTML = '🔍 Analyzing market...';
-    log('🔍 Scout started', 'scanner');
-    updateScoutProgress();
-}
-
-function updateScoutProgress() {
-    if (!state.scanner.isScoutPhase) return;
-    const elapsed = Date.now() - state.scanner.scoutStartTime, pct = Math.min(100, elapsed / state.scanner.scoutDuration * 100);
-    document.getElementById('scoutFill').style.width = pct + '%';
-    const s = Math.floor(elapsed / 1000);
-    document.getElementById('scoutTime').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
-    if (elapsed >= state.scanner.scoutDuration) finishScout(); else setTimeout(updateScoutProgress, 500);
-}
-
-function finishScout() {
-    state.scanner.isScoutPhase = false;
-    document.getElementById('scoutProgress').style.display = 'none';
-    document.getElementById('scannerStatus').textContent = 'READY';
-    
-    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5;
-    const isExtremelyVolatile = state.scanner.tripleRate >= s1tm * 3;
-    
-    let cls = 'good', txt = '✅ MARKET HEALTHY';
-    if (isExtremelyVolatile) { 
-        cls = 'bad'; 
-        txt = `⚠️ EXTREMELY VOLATILE (${state.scanner.tripleRate.toFixed(1)} triples/min)`; 
-        log(`⚠️ Market extremely volatile! Triple rate ${state.scanner.tripleRate.toFixed(1)}/min is ${(state.scanner.tripleRate/s1tm).toFixed(1)}x over threshold`, 'alert');
-    }
-    else if (!state.scanner.s1Healthy && !state.scanner.s2Healthy) { cls = 'bad'; txt = '❌ MARKET UNHEALTHY'; }
-    else if (!state.scanner.s1Healthy || !state.scanner.s2Healthy) { cls = 'caution'; txt = '🟡 PARTIAL - ' + (state.scanner.s1Healthy ? 'S1 OK' : 'S2 OK'); }
-    
-    document.getElementById('marketVerdict').className = 'verdict ' + cls;
-    document.getElementById('marketVerdict').innerHTML = txt;
-    log(`🔍 Scout done: S1=${state.scanner.s1Health}% S2=${state.scanner.s2Health}%`, 'scanner');
-}
-
-// TRADING
-function startTrading() {
-    if (!state.connected) return log('Connect first!', 'loss');
-    if (!document.getElementById('strat1Enabled').checked && !document.getElementById('strat2Enabled').checked) return log('Enable a strategy!', 'loss');
-    
-    state.isTrading = true; state.isPaused = false; state.pauseReason = '';
-    state.s1 = { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false };
-    state.s2 = { 
-        coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, 
-        sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, 
-        waitingConfirm: false, confirmDigit: null, limitReached: false,
-        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
-    };
-    state.simulated = { 
-        s1Trades: [], s2Trades: [], 
-        s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
-        s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 },
-        s1State: { phase: 1, tradeCount: 0, cooldownUntil: null },
-        s2State: { stableSince: null, isStable: false, lastColdest: null, waitingConfirm: false, confirmDigit: null },
-        pendingS1: null,
-        pendingS2: null
-    };
-    updateSimulatedUI();
-    state.session.startTime = Date.now(); state.session.healthyTicks = 0; state.session.totalTicks = 0;
-    
-    document.getElementById('tradingStatusCard').style.display = 'block';
-    document.getElementById('tradingStatusTitle').textContent = '📈 TRADING';
-    document.getElementById('scannerStatus').textContent = 'LIVE';
-    log('▶️ Trading started', 'trade');
-    updateTradingStatus(); updateMarketVerdict();
-    
-    startBackgroundMode();
-}
-
-function stopTrading() {
-    state.isTrading = false; state.isPaused = false;
-    state.botPhase = 'idle'; state.autoMode = false;
-    document.getElementById('tradingStatusCard').style.display = 'none';
-    document.getElementById('scannerStatus').textContent = 'STOPPED';
-    document.getElementById('marketVerdict').className = 'verdict scouting';
-    document.getElementById('marketVerdict').innerHTML = '⏹ Stopped - Click START to begin';
-    document.getElementById('startBotBtn').disabled = false;
-    stopBackgroundMode();
-    // Save state on stop
-    saveStateToIDB();
-    log('⏹ Stopped', 'info');
-}
-
-// AUTOMATED BOT CONTROL
-function startBot() {
-    if (!state.connected) return log('Connect first!', 'loss');
-    if (!document.getElementById('strat1Enabled').checked && !document.getElementById('strat2Enabled').checked) return log('Enable a strategy!', 'loss');
-    
-    state.autoMode = true;
-    state.botPhase = 'waiting_ticks';
-    document.getElementById('startBotBtn').disabled = true;
-    
-    const ticksNeeded = parseInt(document.getElementById('ticksToAnalyze').value) || 100;
-    
-    if (state.ticks.length >= ticksNeeded) {
-        if (document.getElementById('skipScout').checked) proceedToTrading();
-        else proceedToScout();
-    } else {
-        document.getElementById('marketVerdict').className = 'verdict scouting';
-        document.getElementById('marketVerdict').innerHTML = `⏳ Collecting ticks... ${state.ticks.length}/${ticksNeeded}`;
-        log(`🚀 Bot started - waiting for ${ticksNeeded} ticks`, 'info');
-    }
-}
-
-function stopBot() {
-    stopTrading();
-    stopBackgroundMode();
-    state.scanner.isScoutPhase = false;
-    document.getElementById('scoutProgress').style.display = 'none';
-    // Cancel any pending reconnect
-    if (state.reconnectTimer) { clearTimeout(state.reconnectTimer); state.reconnectTimer = null; }
-    state.isReconnecting = false;
-}
-
-function checkAutoProgress() {
-    if (!state.autoMode) return;
-    const ticksNeeded = parseInt(document.getElementById('ticksToAnalyze').value) || 100;
-    if (state.botPhase === 'waiting_ticks') {
-        document.getElementById('marketVerdict').innerHTML = `⏳ Collecting ticks... ${state.ticks.length}/${ticksNeeded}`;
-        if (state.ticks.length >= ticksNeeded) {
-            if (document.getElementById('skipScout').checked) proceedToTrading();
-            else proceedToScout();
-        }
-    }
-}
-
-function proceedToScout() {
-    state.botPhase = 'scouting';
-    state.scanner.isScoutPhase = true;
-    state.scanner.scoutStartTime = Date.now();
-    state.scanner.recentTriples = []; state.scanner.recentDoubles = [];
-    state.scanner.coldestHistory = []; state.scanner.coldAppearances = [];
-    
-    document.getElementById('scoutProgress').style.display = 'block';
-    document.getElementById('scannerStatus').textContent = 'SCOUTING...';
-    document.getElementById('marketVerdict').className = 'verdict scouting';
-    document.getElementById('marketVerdict').innerHTML = '🔍 Auto-scouting market...';
-    log('🔍 Auto-scout started', 'scanner');
-    updateAutoScoutProgress();
-}
-
-function updateAutoScoutProgress() {
-    if (!state.scanner.isScoutPhase || !state.autoMode) return;
-    const elapsed = Date.now() - state.scanner.scoutStartTime;
-    const pct = Math.min(100, elapsed / state.scanner.scoutDuration * 100);
-    document.getElementById('scoutFill').style.width = pct + '%';
-    const s = Math.floor(elapsed / 1000);
-    document.getElementById('scoutTime').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
-    document.getElementById('marketVerdict').innerHTML = `🔍 Auto-scouting... ${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')} / 2:00`;
-    if (elapsed >= state.scanner.scoutDuration) finishAutoScout();
-    else setTimeout(updateAutoScoutProgress, 500);
-}
-
-function finishAutoScout() {
-    state.scanner.isScoutPhase = false;
-    document.getElementById('scoutProgress').style.display = 'none';
-    
-    const s1tm = parseFloat(document.getElementById('scannerS1TripleMax').value) || 2.5;
-    const isExtremelyVolatile = state.scanner.tripleRate >= s1tm * 3;
-    if (isExtremelyVolatile) log(`⚠️ Market extremely volatile! Triple rate ${state.scanner.tripleRate.toFixed(1)}/min`, 'alert');
-    log(`🔍 Auto-scout done: S1=${state.scanner.s1Health}% S2=${state.scanner.s2Health}%`, 'scanner');
-    proceedToTrading();
-}
-
-function proceedToTrading() {
-    state.botPhase = 'trading';
-    state.isTrading = true; state.isPaused = false; state.pauseReason = '';
-    state.s1 = { phase: 1, tradeCount: 0, cycleResults: [], cyclesCompleted: 0, sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, cooldownUntil: null, limitReached: false };
-    state.s2 = { 
-        coldestDigit: null, stableSince: null, isStable: false, lastColdest: null, 
-        sessionTrades: 0, sessionWins: 0, sessionPL: 0, currentStreak: 0, 
-        waitingConfirm: false, confirmDigit: null, limitReached: false,
-        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
-    };
-    state.simulated = { 
-        s1Trades: [], s2Trades: [], 
-        s1Summary: { trades: 0, wins: 0, losses: 0, pl: 0 }, 
-        s2Summary: { trades: 0, wins: 0, losses: 0, pl: 0 },
-        s1State: { phase: 1, tradeCount: 0, cooldownUntil: null },
-        s2State: { stableSince: null, isStable: false, lastColdest: null, waitingConfirm: false, confirmDigit: null },
-        pendingS1: null, pendingS2: null
-    };
-    updateSimulatedUI();
-    state.session.startTime = Date.now(); state.session.healthyTicks = 0; state.session.totalTicks = 0;
-    
-    document.getElementById('tradingStatusCard').style.display = 'block';
-    document.getElementById('tradingStatusTitle').textContent = '📈 TRADING';
-    document.getElementById('scannerStatus').textContent = 'LIVE';
-    log('▶️ Auto-trading started', 'trade');
-    updateTradingStatus(); updateMarketVerdict();
-    startBackgroundMode();
-}
-
-function updateTradingStatus() {
-    let t = 0, w = 0, pl = 0, s = 0;
-    if (document.getElementById('strat1Enabled').checked) { t += state.s1.sessionTrades; w += state.s1.sessionWins; pl += state.s1.sessionPL; s = Math.max(s, state.s1.currentStreak); }
-    if (document.getElementById('strat2Enabled').checked) { t += state.s2.sessionTrades; w += state.s2.sessionWins; pl += state.s2.sessionPL; s = Math.max(s, state.s2.currentStreak); }
-    
-    document.getElementById('sessionTrades').textContent = t;
-    document.getElementById('sessionWins').textContent = w;
-    document.getElementById('sessionStreak').textContent = s;
-    document.getElementById('sessionPL').textContent = '$' + pl.toFixed(2);
-    document.getElementById('sessionPL').className = 'stat-val ' + (pl >= 0 ? 'pos' : 'neg');
-    
-    let notes = [];
-    if (state.s1.limitReached) notes.push('S1: limit');
-    if (state.s2.limitReached) notes.push('S2: limit');
-    document.getElementById('tradingNote').textContent = notes.join(' | ');
-}
-
-function processTrading(digit, freqs, isDouble, isTriple) {
-    if (document.getElementById('strat1Enabled').checked && !state.s1.limitReached) processS1(digit, freqs, isDouble, isTriple);
-    if (document.getElementById('strat2Enabled').checked && !state.s2.limitReached) processS2(digit, freqs);
-}
-
-function processS1(digit, freqs, isDouble, isTriple) {
-    const mode = document.querySelector('input[name="s1EntryMode"]:checked').value;
-    const tt = parseFloat(document.getElementById('tripleThreshold').value) || 7;
-    const dt = parseFloat(document.getElementById('doubleColdThreshold').value) || 8;
-    const tpc = parseInt(document.getElementById('tradesPerCycle').value) || 3;
-    const cd = parseInt(document.getElementById('tripleCooldown').value) || 5;
-    
-    if ((mode === 'scanner' || mode === 'both') && !state.scanner.s1Healthy) return;
-    
-    if (mode !== 'scanner' && state.s1.phase === 1) {
-        if (isTriple && freqs[digit] <= tt) { state.s1.phase = 2; state.s1.tradeCount = 0; log(`📍 S1: Cold triple → Phase 2`, 'trade'); }
-        return;
-    }
-    if (mode === 'scanner' && state.s1.phase === 1) state.s1.phase = 2;
-    
-    if (state.s1.phase === 2) {
-        if (isTriple) { state.s1.cooldownUntil = Date.now() + cd * 1000; log(`⏸️ S1: Cooldown ${cd}s`, 'alert'); return; }
-        if (state.s1.cooldownUntil && Date.now() < state.s1.cooldownUntil) return;
-        
-        if (isDouble && freqs[digit] <= dt && state.s1.tradeCount < tpc) {
-            log(`🔔 S1: D${digit} (${freqs[digit].toFixed(1)}%)`, 'trade');
-            placeTrade(digit, freqs[digit], 'S1');
-            state.s1.tradeCount++;
-        }
-        
-        if (state.s1.tradeCount >= tpc) {
-            if (mode === 'scanner') state.s1.tradeCount = 0;
-            else { state.s1.phase = 1; state.s1.tradeCount = 0; state.s1.cyclesCompleted++; log('✅ S1: Cycle done', 'info'); }
-        }
-    }
-}
-
-function processS2(digit, freqs) {
-    const mode = document.querySelector('input[name="s2EntryMode"]:checked').value;
-    const ct = parseFloat(document.getElementById('strat2Threshold').value) || 6;
-    const ss = parseFloat(document.getElementById('strat2Stability').value) || 3;
-    const digitCooldown = parseInt(document.getElementById('s2DigitCooldown').value) || 10;
-    const maxPerDigit = parseInt(document.getElementById('s2MaxPerDigit').value) || 2;
-    
-    if ((mode === 'scanner' || mode === 'both') && !state.scanner.s2Healthy) return;
-    
-    const coldest = freqs.indexOf(Math.min(...freqs)), coldFreq = freqs[coldest];
-    if (coldFreq > ct) { state.s2.stableSince = null; state.s2.isStable = false; state.s2.waitingConfirm = false; return; }
-    
-    if (coldest !== state.s2.lastColdest) { state.s2.stableSince = Date.now(); state.s2.isStable = false; }
-    else if (state.s2.stableSince) state.s2.isStable = (Date.now() - state.s2.stableSince) / 1000 >= ss;
-    state.s2.lastColdest = coldest;
-    
+// ============================================================
+// STRATEGY: Coldest + Confirm (used in both phases)
+// ============================================================
+function processStrategy(digit, freqs) {
+    const ct = parseFloat(document.getElementById('coldThreshold').value) || 6;
+    const ss = parseFloat(document.getElementById('stability').value) || 3;
+    const digitCooldown = parseInt(document.getElementById('digitCooldown').value) || 10;
+    const maxPerDigit = parseInt(document.getElementById('maxPerDigit').value) || 2;
     const now = Date.now();
-    state.s2.recentDigitAppearances.push({ digit: coldest, time: now });
-    state.s2.recentDigitAppearances = state.s2.recentDigitAppearances.filter(a => now - a.time < 10000);
-    
-    const recentAppearances = state.s2.recentDigitAppearances.filter(a => a.digit === coldest).length;
-    if (recentAppearances >= 4) {
-        if (!state.s2.digitHotWarned || state.s2.digitHotWarned !== coldest) {
-            log(`🔥 S2: D${coldest} going HOT (${recentAppearances}x in 10s) - skipping`, 'alert');
-            state.s2.digitHotWarned = coldest;
+    const st = S.strat;
+
+    // Resolve pending simulated trade (Phase 1)
+    if (S.simPending) {
+        const won = digit !== S.simPending.digit;
+        if (!won) {
+            // LOSS detected in Phase 1 — transition to Phase 2!
+            S.p1LossesCaught++;
+            log(`❌👻 P1 Shadow LOSS on D${S.simPending.digit} — PHASE 2 ACTIVATED!`, 'phase');
+            S.phase = 2;
+            updatePhaseBanner();
+        } else {
+            log(`✅👻 P1 Shadow win D${S.simPending.digit}`, 'info');
         }
-        state.s2.waitingConfirm = false;
+        addTradeToUI(S.simPending.digit, S.simPending.freq, won, won ? 0.965 : -10, true);
+        S.simPending = null;
+        S.p1SimCount++;
+        document.getElementById('p1SimCount').textContent = S.p1SimCount;
+        updateProgressUI();
+        if (S.phase === 2) return; // Don't process further this tick after transition
+    }
+
+    const coldest = freqs.indexOf(Math.min(...freqs));
+    const coldFreq = freqs[coldest];
+
+    if (coldFreq > ct) { st.stableSince = null; st.isStable = false; st.waitingConfirm = false; return; }
+
+    if (coldest !== st.lastColdest) { st.stableSince = Date.now(); st.isStable = false; }
+    else if (st.stableSince) st.isStable = (Date.now() - st.stableSince) / 1000 >= ss;
+    st.lastColdest = coldest;
+
+    // Hot detection
+    st.recentDigitAppearances.push({ digit: coldest, time: now });
+    st.recentDigitAppearances = st.recentDigitAppearances.filter(a => now - a.time < 10000);
+    const recentCount = st.recentDigitAppearances.filter(a => a.digit === coldest).length;
+    if (recentCount >= 4) {
+        if (st.digitHotWarned !== coldest) { log(`🔥 D${coldest} going HOT (${recentCount}x in 10s) - skip`, 'alert'); st.digitHotWarned = coldest; }
+        st.waitingConfirm = false;
         return;
     }
-    
-    if (state.s2.waitingConfirm) {
-        if (digit !== state.s2.confirmDigit) {
-            const confirmDigit = state.s2.confirmDigit;
-            if (state.s2.digitCooldowns[confirmDigit] && now < state.s2.digitCooldowns[confirmDigit]) {
-                const remaining = Math.ceil((state.s2.digitCooldowns[confirmDigit] - now) / 1000);
-                log(`⏳ S2: D${confirmDigit} on cooldown (${remaining}s left)`, 'info');
-                state.s2.waitingConfirm = false; state.s2.confirmDigit = null; return;
+
+    if (st.waitingConfirm) {
+        if (digit !== st.confirmDigit) {
+            const cd = st.confirmDigit;
+
+            // Cooldown check
+            if (st.digitCooldowns[cd] && now < st.digitCooldowns[cd]) {
+                log(`⏳ D${cd} cooldown (${Math.ceil((st.digitCooldowns[cd]-now)/1000)}s)`, 'info');
+                st.waitingConfirm = false; st.confirmDigit = null; return;
             }
-            const digitCount = state.s2.digitTradeCount[confirmDigit] || 0;
-            if (digitCount >= maxPerDigit) {
-                log(`🚫 S2: D${confirmDigit} max trades reached (${digitCount}/${maxPerDigit})`, 'info');
-                state.s2.waitingConfirm = false; state.s2.confirmDigit = null; return;
+            // Max per digit check
+            const dc = st.digitTradeCount[cd] || 0;
+            if (dc >= maxPerDigit) {
+                log(`🚫 D${cd} max trades (${dc}/${maxPerDigit})`, 'info');
+                st.waitingConfirm = false; st.confirmDigit = null; return;
             }
-            log(`🔔 S2: Confirmed D${confirmDigit}`, 'trade');
-            placeTrade(confirmDigit, freqs[confirmDigit], 'S2');
-            state.s2.digitCooldowns[confirmDigit] = now + (digitCooldown * 1000);
-            state.s2.digitTradeCount[confirmDigit] = digitCount + 1;
+
+            if (S.phase === 1) {
+                // Phase 1: Shadow trade — queue simulated
+                log(`👻 P1 Shadow: DIFFERS D${cd} (${freqs[cd].toFixed(1)}%)`, 'alert');
+                S.simPending = { digit: cd, freq: freqs[cd].toFixed(1), time: getTimestamp() };
+            } else if (S.phase === 2) {
+                // Phase 2: REAL trade
+                log(`🔔 P2 REAL: DIFFERS D${cd} (${freqs[cd].toFixed(1)}%)`, 'trade');
+                placeTrade(cd, freqs[cd]);
+                st.digitCooldowns[cd] = now + (digitCooldown * 1000);
+                st.digitTradeCount[cd] = dc + 1;
+            }
+        } else {
+            log(`⚠️ D${digit} doubled — cancel`, 'alert');
         }
-        else log(`⚠️ S2: D${digit} doubled, cancel`, 'alert');
-        state.s2.waitingConfirm = false; state.s2.confirmDigit = null;
+        st.waitingConfirm = false; st.confirmDigit = null;
         return;
     }
-    
-    if (state.s2.isStable && digit === coldest) { state.s2.waitingConfirm = true; state.s2.confirmDigit = coldest; log(`👆 S2: Tap D${coldest}`, 'info'); }
-}
 
-// SIMULATED
-function processSimulatedTrading(digit, freqs, isDouble, isTriple) {
-    const stake = parseFloat(document.getElementById('stake').value) || 10;
-    const PAYOUT_RATE = 0.09649;
-    resolvePendingSimulatedTrades(digit, stake, PAYOUT_RATE);
-    if (document.getElementById('strat1Enabled').checked && !state.s1.limitReached) processSimulatedS1(digit, freqs, isDouble, isTriple);
-    if (document.getElementById('strat2Enabled').checked && !state.s2.limitReached) processSimulatedS2(digit, freqs);
-    updateSimulatedUI();
-}
-
-function resolvePendingSimulatedTrades(currentDigit, stake, PAYOUT_RATE) {
-    if (state.simulated.pendingS1) {
-        const pending = state.simulated.pendingS1;
-        const won = currentDigit !== pending.digit;
-        const profit = won ? stake * PAYOUT_RATE : -stake;
-        state.simulated.s1Trades.push({ time: pending.time, strategy: 'S1', digit: pending.digit, freq: pending.freq, result: won ? 'WIN' : 'LOSS', profit });
-        state.simulated.s1Summary.trades++;
-        if (won) state.simulated.s1Summary.wins++; else state.simulated.s1Summary.losses++;
-        state.simulated.s1Summary.pl += profit;
-        log(`👻 S1 Sim: D${pending.digit} → ${won ? 'WIN' : 'LOSS'} ($${profit.toFixed(2)})`, 'scanner');
-        state.simulated.pendingS1 = null;
-    }
-    if (state.simulated.pendingS2) {
-        const pending = state.simulated.pendingS2;
-        const won = currentDigit !== pending.digit;
-        const profit = won ? stake * PAYOUT_RATE : -stake;
-        state.simulated.s2Trades.push({ time: pending.time, strategy: 'S2', digit: pending.digit, freq: pending.freq, result: won ? 'WIN' : 'LOSS', profit });
-        state.simulated.s2Summary.trades++;
-        if (won) state.simulated.s2Summary.wins++; else state.simulated.s2Summary.losses++;
-        state.simulated.s2Summary.pl += profit;
-        log(`👻 S2 Sim: D${pending.digit} → ${won ? 'WIN' : 'LOSS'} ($${profit.toFixed(2)})`, 'scanner');
-        state.simulated.pendingS2 = null;
+    if (st.isStable && digit === coldest) {
+        st.waitingConfirm = true;
+        st.confirmDigit = coldest;
+        log(`👆 Tap D${coldest} (${coldFreq.toFixed(1)}%) — awaiting confirm`, 'info');
     }
 }
 
-function processSimulatedS1(digit, freqs, isDouble, isTriple) {
-    const mode = document.querySelector('input[name="s1EntryMode"]:checked').value;
-    const tt = parseFloat(document.getElementById('tripleThreshold').value) || 7;
-    const dt = parseFloat(document.getElementById('doubleColdThreshold').value) || 8;
-    const tpc = parseInt(document.getElementById('tradesPerCycle').value) || 3;
-    const cd = parseInt(document.getElementById('tripleCooldown').value) || 5;
-    const simState = state.simulated.s1State;
-    
-    if (mode !== 'scanner' && simState.phase === 1) {
-        if (isTriple && freqs[digit] <= tt) { simState.phase = 2; simState.tradeCount = 0; log(`👻 S1 Sim: Cold triple → Phase 2`, 'scanner'); }
-        return;
-    }
-    if (mode === 'scanner' && simState.phase === 1) simState.phase = 2;
-    
-    if (simState.phase === 2) {
-        if (isTriple) { simState.cooldownUntil = Date.now() + cd * 1000; log(`👻 S1 Sim: Triple! Cooldown ${cd}s`, 'scanner'); return; }
-        if (simState.cooldownUntil && Date.now() < simState.cooldownUntil) return;
-        if (isDouble && freqs[digit] <= dt && simState.tradeCount < tpc && !state.simulated.pendingS1) {
-            log(`👻 S1 Sim: Placing on D${digit} (${freqs[digit].toFixed(1)}%)`, 'scanner');
-            state.simulated.pendingS1 = { digit, freq: freqs[digit].toFixed(1), time: getTimestamp() };
-            simState.tradeCount++;
-        }
-        if (simState.tradeCount >= tpc) {
-            if (mode === 'scanner') simState.tradeCount = 0;
-            else { simState.phase = 1; simState.tradeCount = 0; log(`👻 S1 Sim: Cycle complete`, 'scanner'); }
-        }
-    }
-}
-
-function processSimulatedS2(digit, freqs) {
-    const mode = document.querySelector('input[name="s2EntryMode"]:checked').value;
-    const ct = parseFloat(document.getElementById('strat2Threshold').value) || 6;
-    const ss = parseFloat(document.getElementById('strat2Stability').value) || 3;
-    const simState = state.simulated.s2State;
-    
-    const coldest = freqs.indexOf(Math.min(...freqs)), coldFreq = freqs[coldest];
-    if (coldFreq > ct) { simState.stableSince = null; simState.isStable = false; simState.waitingConfirm = false; return; }
-    
-    if (coldest !== simState.lastColdest) { simState.stableSince = Date.now(); simState.isStable = false; }
-    else if (simState.stableSince) simState.isStable = (Date.now() - simState.stableSince) / 1000 >= ss;
-    simState.lastColdest = coldest;
-    
-    if (simState.waitingConfirm) {
-        if (digit !== simState.confirmDigit) {
-            if (!state.simulated.pendingS2) {
-                log(`👻 S2 Sim: Confirmed! Placing on D${simState.confirmDigit}`, 'scanner');
-                state.simulated.pendingS2 = { digit: simState.confirmDigit, freq: freqs[simState.confirmDigit].toFixed(1), time: getTimestamp() };
-            }
-        } else log(`👻 S2 Sim: D${digit} doubled, cancel`, 'scanner');
-        simState.waitingConfirm = false; simState.confirmDigit = null; return;
-    }
-    
-    if (simState.isStable && digit === coldest && !state.simulated.pendingS2) { simState.waitingConfirm = true; simState.confirmDigit = coldest; log(`👻 S2 Sim: Tap on D${coldest} - waiting confirm`, 'scanner'); }
-}
-
-function updateSimulatedUI() {
-    const s1 = state.simulated.s1Summary, s2 = state.simulated.s2Summary;
-    document.getElementById('s1SimSummary').textContent = `${s1.wins}W/${s1.losses}L = $${s1.pl.toFixed(2)}`;
-    document.getElementById('s1SimSummary').style.color = s1.pl >= 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('s2SimSummary').textContent = `${s2.wins}W/${s2.losses}L = $${s2.pl.toFixed(2)}`;
-    document.getElementById('s2SimSummary').style.color = s2.pl >= 0 ? 'var(--green)' : 'var(--red)';
-    
-    const totalSimPL = s1.pl + s2.pl, totalSimTrades = s1.trades + s2.trades;
-    const impactEl = document.getElementById('scannerImpact'), impactTextEl = document.getElementById('scannerImpactText');
-    if (totalSimTrades > 0) {
-        impactEl.style.display = 'block';
-        if (totalSimPL < 0) { impactTextEl.textContent = `✅ Scanner SAVED you $${Math.abs(totalSimPL).toFixed(2)}`; impactTextEl.style.color = 'var(--green)'; }
-        else { impactTextEl.textContent = `⚠️ Scanner cost you $${totalSimPL.toFixed(2)} in missed profits`; impactTextEl.style.color = 'var(--yellow)'; }
-    } else impactEl.style.display = 'none';
-    
-    const all = [...state.simulated.s1Trades, ...state.simulated.s2Trades].slice(-20).reverse();
-    document.getElementById('simTradesList').innerHTML = all.length ? all.map(t => `<div class="sim-trade ${t.result.toLowerCase()}"><span>${t.strategy}|D${t.digit} (${t.freq}%)</span><span>${t.result} ${t.profit >= 0 ? '+' : ''}$${t.profit.toFixed(2)}</span></div>`).join('') : '<div style="text-align:center;color:var(--muted);padding:10px;font-size:9px">No simulated trades</div>';
-}
-
+// ============================================================
 // TRADE EXECUTION
-function placeTrade(digit, freq, strategy) {
+// ============================================================
+function placeTrade(digit, freq) {
     const stake = parseFloat(document.getElementById('stake').value) || 10;
-    state.currentTradeDigit = digit; state.currentTradeStrategy = strategy; state.currentTradeFreq = freq;
-    
-    let tradeCount = 1;
-    if (strategy === 'S1' && document.getElementById('s1RapidFire').checked) tradeCount = parseInt(document.getElementById('s1RapidCount').value) || 3;
-    else if (strategy === 'S2' && document.getElementById('s2RapidFire').checked) tradeCount = parseInt(document.getElementById('s2RapidCount').value) || 3;
-    
-    for (let i = 0; i < tradeCount; i++) {
-        state.ws.send(JSON.stringify({ buy: 1, price: stake, parameters: { amount: stake, basis: 'stake', contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, duration_unit: 't', symbol: document.getElementById('symbol').value, barrier: digit.toString() } }));
+    S.currentTradeDigit = digit;
+    S.currentTradeFreq = freq;
+
+    let count = 1;
+    if (document.getElementById('rapidFire').checked) count = parseInt(document.getElementById('rapidCount').value) || 2;
+
+    for (let i = 0; i < count; i++) {
+        S.ws.send(JSON.stringify({
+            buy: 1, price: stake,
+            parameters: { amount: stake, basis: 'stake', contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, duration_unit: 't', symbol: document.getElementById('symbol').value, barrier: digit.toString() }
+        }));
     }
-    
-    if (tradeCount > 1) log(`📤 ${strategy}: 🔥 RAPID ${tradeCount}x DIFFERS D${digit} @ $${stake}`, 'trade');
-    else log(`📤 ${strategy}: DIFFERS D${digit} @ $${stake}`, 'trade');
+
+    if (count > 1) log(`📤 🔥 RAPID ${count}x DIFFERS D${digit} @ $${stake}`, 'trade');
+    else log(`📤 DIFFERS D${digit} @ $${stake}`, 'trade');
 }
 
 function processTradeResult(contract) {
-    const info = state.pendingContracts.get(contract.contract_id);
+    const info = S.pendingContracts.get(contract.contract_id);
     if (!info) return;
-    state.pendingContracts.delete(contract.contract_id);
-    
-    const won = contract.status === 'won', profit = parseFloat(contract.profit) || (won ? info.stake * 0.9649 : -info.stake);
-    
-    if (info.strategy === 'S1') {
-        state.s1.sessionTrades++; if (won) { state.s1.sessionWins++; state.s1.currentStreak++; } else { state.s1.currentStreak = 0; if (document.getElementById('s1StopOnLoss').checked) { state.s1.limitReached = true; log('🛑 S1: Stop on loss', 'loss'); } }
-        state.s1.sessionPL += profit;
-        const wt = parseInt(document.getElementById('s1WinTarget').value) || 0; if (wt > 0 && state.s1.currentStreak >= wt) { state.s1.limitReached = true; log(`🎯 S1: Target ${wt}!`, 'win'); }
-        const mt = parseInt(document.getElementById('s1MaxTrades').value) || 0; if (mt > 0 && state.s1.sessionTrades >= mt) { state.s1.limitReached = true; log(`🎯 S1: Max ${mt}!`, 'info'); }
-    } else {
-        state.s2.sessionTrades++; if (won) { state.s2.sessionWins++; state.s2.currentStreak++; } else { state.s2.currentStreak = 0; if (document.getElementById('s2StopOnLoss').checked) { state.s2.limitReached = true; log('🛑 S2: Stop on loss', 'loss'); } }
-        state.s2.sessionPL += profit;
-        const wt = parseInt(document.getElementById('s2WinTarget').value) || 0; if (wt > 0 && state.s2.currentStreak >= wt) { state.s2.limitReached = true; log(`🎯 S2: Target ${wt}!`, 'win'); }
-        const mt = parseInt(document.getElementById('s2MaxTrades').value) || 0; if (mt > 0 && state.s2.sessionTrades >= mt) { state.s2.limitReached = true; log(`🎯 S2: Max ${mt}!`, 'info'); }
+    S.pendingContracts.delete(contract.contract_id);
+
+    const won = contract.status === 'won';
+    const profit = parseFloat(contract.profit) || (won ? info.stake * 0.09649 : -info.stake);
+
+    S.totalTrades++;
+    if (won) { S.totalWins++; S.streak++; } else S.streak = 0;
+    S.bestStreak = Math.max(S.bestStreak, S.streak);
+    S.totalPL += profit;
+    S.cycleTradesDone++;
+
+    log(`${won ? '✅' : '❌'} P2: D${info.digit} ${won ? 'WIN' : 'LOSS'} $${profit.toFixed(2)}`, won ? 'win' : 'loss');
+
+    S.session.tradeLog.push({ time: getTimestamp(), market: document.getElementById('symbol').value, phase: 2, digit: info.digit, freq: info.freq, result: won ? 'WIN' : 'LOSS', profit, streak: S.streak, cycle: S.currentCycle });
+
+    addTradeToUI(info.digit, info.freq, won, profit, false);
+    updateStats();
+    updateProgressUI();
+    document.getElementById('p2RealCount').textContent = S.cycleTradesDone;
+
+    // Check if cycle is done
+    const tpc = parseInt(document.getElementById('tradesPerCycle').value) || 12;
+    if (S.cycleTradesDone >= tpc) {
+        completeCycle();
     }
-    
-    state.totalTrades++; if (won) state.totalWins++; state.totalPL += profit;
-    state.currentStreak = won ? state.currentStreak + 1 : 0; state.bestStreak = Math.max(state.bestStreak, state.currentStreak);
-    
-    log(`${won ? '✅' : '❌'} ${info.strategy}: D${info.digit} ${won ? 'WIN' : 'LOSS'} $${profit.toFixed(2)}`, won ? 'win' : 'loss');
-    
-    state.session.tradeLog.push({ time: getTimestamp(), market: document.getElementById('symbol').value, strategy: info.strategy, digit: info.digit, freq: info.freq, result: won ? 'WIN' : 'LOSS', profit, streak: state.currentStreak });
-    
-    updateTradingStatus(); updateTotalStats(); updateRealTradesUI(info.digit, info.freq, info.strategy, won, profit); checkMarketHealth();
 }
 
-function updateTotalStats() {
-    document.getElementById('totalTrades').textContent = state.totalTrades;
-    document.getElementById('totalWins').textContent = state.totalWins;
-    document.getElementById('winRate').textContent = state.totalTrades ? (state.totalWins / state.totalTrades * 100).toFixed(1) + '%' : '0%';
-    document.getElementById('totalPL').textContent = '$' + state.totalPL.toFixed(2);
-    document.getElementById('totalPL').className = 'stat-val ' + (state.totalPL >= 0 ? 'pos' : 'neg');
-    document.getElementById('bestStreak').textContent = state.bestStreak;
+// ============================================================
+// CYCLE & SESSION MANAGEMENT
+// ============================================================
+function startBot() {
+    if (!S.connected) return log('Connect first!', 'loss');
+    const ticksNeeded = parseInt(document.getElementById('ticksToAnalyze').value) || 100;
+    if (S.ticks.length < ticksNeeded) return log(`Need ${ticksNeeded} ticks (have ${S.ticks.length})`, 'loss');
+
+    S.running = true;
+    S.currentCycle = 1;
+    S.totalTrades = 0; S.totalWins = 0; S.totalPL = 0; S.streak = 0; S.bestStreak = 0;
+    S.p1LossesCaught = 0; S.cycleHistory = [];
+    S.session.startTime = Date.now(); S.session.tradeLog = []; S.session.totalTicks = 0;
+    document.getElementById('startBotBtn').disabled = true;
+    document.getElementById('progressCard').style.display = 'block';
+    document.getElementById('tradeLog').innerHTML = '';
+
+    startCycle();
+    startBackgroundMode();
+    log('🚀 Bot started', 'phase');
 }
 
-function updateRealTradesUI(digit, freq, strategy, won, profit) {
-    const c = document.getElementById('realTrades');
-    if (state.session.tradeLog.length === 1) c.innerHTML = '';
-    c.innerHTML = `<div class="trade-row ${won ? 'win' : 'loss'}"><span>${strategy}|D${digit} (${freq.toFixed(1)}%)</span><span>${won ? 'WIN' : 'LOSS'} $${profit.toFixed(2)}</span></div>` + c.innerHTML;
-    document.getElementById('realTradeCount').textContent = state.session.tradeLog.length;
+function stopBot() {
+    S.running = false;
+    S.phase = 0;
+    S.simPending = null;
+    document.getElementById('startBotBtn').disabled = false;
+    updatePhaseBanner();
+    stopBackgroundMode();
+    saveStateToIDB();
+    if (S.reconnectTimer) { clearTimeout(S.reconnectTimer); S.reconnectTimer = null; }
+    S.isReconnecting = false;
+    log('⏹ Bot stopped', 'info');
 }
 
-// CSV EXPORT
-function downloadTickData() {
-    if (!state.session.tickLog.length) return log('No data', 'loss');
-    const h = Object.keys(state.session.tickLog[0]);
-    const csv = [h.join(','), ...state.session.tickLog.map(r => h.map(k => r[k]).join(','))].join('\n');
-    download(csv, `ticks_${ts()}.csv`, 'text/csv');
-    log(`📥 ${state.session.tickLog.length} ticks`, 'info');
+function startCycle() {
+    const maxCycles = parseInt(document.getElementById('cyclesPerSession').value) || 2;
+    S.phase = 1;
+    S.cycleTradesDone = 0;
+    S.p1SimCount = 0;
+    S.simPending = null;
+    resetStratState();
+
+    log(`🔄 CYCLE ${S.currentCycle}/${maxCycles} — Phase 1: Watching for loss...`, 'phase');
+    updatePhaseBanner();
+    updateProgressUI();
+    document.getElementById('p1SimCount').textContent = '0';
+    document.getElementById('p2RealCount').textContent = '0';
 }
 
-function downloadTradeLog() {
-    if (!state.session.tradeLog.length) return log('No trades', 'loss');
-    const h = Object.keys(state.session.tradeLog[0]);
-    const csv = [h.join(','), ...state.session.tradeLog.map(r => h.map(k => r[k]).join(','))].join('\n');
-    download(csv, `trades_${ts()}.csv`, 'text/csv');
-    log(`📥 ${state.session.tradeLog.length} trades`, 'info');
+function completeCycle() {
+    const tpc = parseInt(document.getElementById('tradesPerCycle').value) || 12;
+    const maxCycles = parseInt(document.getElementById('cyclesPerSession').value) || 2;
+    const wins = S.session.tradeLog.filter(t => t.cycle === S.currentCycle && t.result === 'WIN').length;
+    const losses = S.cycleTradesDone - wins;
+    const pl = S.session.tradeLog.filter(t => t.cycle === S.currentCycle).reduce((s, t) => s + t.profit, 0);
+
+    S.cycleHistory.push({ cycle: S.currentCycle, trades: S.cycleTradesDone, wins, losses, pl, p1Sims: S.p1SimCount });
+
+    log(`✅ CYCLE ${S.currentCycle} DONE: ${wins}W/${losses}L = $${pl.toFixed(2)}`, 'phase');
+    updateCycleHistoryUI();
+
+    if (S.currentCycle >= maxCycles) {
+        // Session complete
+        S.phase = 0;
+        S.running = false;
+        document.getElementById('startBotBtn').disabled = false;
+        updatePhaseBanner();
+        saveStateToIDB();
+        log(`🏁 SESSION COMPLETE: ${S.totalTrades} trades, ${S.totalWins}W, $${S.totalPL.toFixed(2)}`, 'phase');
+    } else {
+        S.currentCycle++;
+        startCycle();
+    }
 }
 
-function downloadActivityLog() {
-    if (!state.activityLog.length) return log('No log', 'loss');
-    const txt = state.activityLog.map(e => `[${e.time}] ${e.message}`).join('\n');
-    download(txt, `activity_${ts()}.txt`, 'text/plain');
-    log(`📥 ${state.activityLog.length} entries`, 'info');
+function resetStratState() {
+    S.strat = {
+        lastColdest: null, stableSince: null, isStable: false,
+        waitingConfirm: false, confirmDigit: null,
+        digitCooldowns: {}, digitTradeCount: {}, recentDigitAppearances: [], digitHotWarned: null
+    };
 }
 
-function download(content, filename, type) {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type })); a.download = filename; a.click();
+// ============================================================
+// UI UPDATES
+// ============================================================
+function updatePhaseBanner() {
+    const b = document.getElementById('phaseBanner');
+    const maxCycles = parseInt(document.getElementById('cyclesPerSession').value) || 2;
+    if (S.phase === 0 && !S.running) {
+        if (S.cycleHistory.length > 0 && S.currentCycle >= maxCycles) {
+            b.className = 'phase-banner session-done';
+            b.innerHTML = `🏁 SESSION COMPLETE — ${S.totalTrades} trades, $${S.totalPL.toFixed(2)}`;
+        } else {
+            b.className = 'phase-banner idle';
+            b.innerHTML = '⏹ Connect and click START';
+        }
+    } else if (S.phase === 1) {
+        b.className = 'phase-banner phase1';
+        b.innerHTML = `👁️ PHASE 1 — WATCHING (Cycle ${S.currentCycle}/${maxCycles})<br><span style="font-size:10px">Shadow-trading until a loss is detected...</span>`;
+        document.getElementById('currentPhase').textContent = '👁️ P1';
+        document.getElementById('currentPhase').style.color = 'var(--yellow)';
+    } else if (S.phase === 2) {
+        b.className = 'phase-banner phase2';
+        b.innerHTML = `🎯 PHASE 2 — TRADING LIVE (Cycle ${S.currentCycle}/${maxCycles})<br><span style="font-size:10px">Loss caught! Taking real trades...</span>`;
+        document.getElementById('currentPhase').textContent = '🎯 P2';
+        document.getElementById('currentPhase').style.color = 'var(--green)';
+    }
 }
 
-function ts() { return new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_'); }
+function updateProgressUI() {
+    const tpc = parseInt(document.getElementById('tradesPerCycle').value) || 12;
+    const maxCycles = parseInt(document.getElementById('cyclesPerSession').value) || 2;
 
-// BACKGROUND MODE - Silent Audio Keep-Alive
-let audioContext = null;
-let silentOscillator = null;
-let silentGain = null;
-let bgKeepAliveInterval = null;
+    document.getElementById('currentCycle').textContent = `${S.currentCycle}/${maxCycles}`;
+    document.getElementById('cycleTradeCount').textContent = `${S.cycleTradesDone}/${tpc}`;
 
+    // P1 bar: pulses while active, fills to 100% on loss found
+    if (S.phase === 1) {
+        document.getElementById('p1Bar').style.width = Math.min(100, S.p1SimCount * 10) + '%';
+        document.getElementById('p1Status').textContent = `Watching... (${S.p1SimCount} shadow trades)`;
+        document.getElementById('p2Status').textContent = 'Waiting for Phase 1...';
+        document.getElementById('p2Bar').style.width = '0%';
+    } else if (S.phase === 2) {
+        document.getElementById('p1Bar').style.width = '100%';
+        document.getElementById('p1Status').textContent = `✅ Loss caught after ${S.p1SimCount} shadows`;
+        document.getElementById('p2Status').textContent = `${S.cycleTradesDone}/${tpc} trades`;
+        document.getElementById('p2Bar').style.width = (S.cycleTradesDone / tpc * 100) + '%';
+    }
+
+    document.getElementById('p1LossesCaught').textContent = S.p1LossesCaught;
+}
+
+function updateStats() {
+    document.getElementById('totalTrades').textContent = S.totalTrades;
+    document.getElementById('totalWins').textContent = S.totalWins;
+    document.getElementById('winRate').textContent = S.totalTrades ? (S.totalWins / S.totalTrades * 100).toFixed(1) + '%' : '0%';
+    document.getElementById('totalPL').textContent = '$' + S.totalPL.toFixed(2);
+    document.getElementById('totalPL').className = 'stat-val ' + (S.totalPL >= 0 ? 'pos' : 'neg');
+    document.getElementById('currentStreak').textContent = S.streak;
+    document.getElementById('bestStreak').textContent = S.bestStreak;
+}
+
+function addTradeToUI(digit, freq, won, profit, isSim) {
+    const c = document.getElementById('tradeLog');
+    if (c.querySelector('.text-center, [style*="text-align:center"]')) c.innerHTML = '';
+    const label = isSim ? '👻P1' : '🎯P2';
+    c.innerHTML = `<div class="trade-row ${won ? 'win' : 'loss'} ${isSim ? 'sim' : ''}"><span>${label}|D${digit} (${freq}%)</span><span>${won ? 'WIN' : 'LOSS'} ${isSim ? '(sim)' : '$' + profit.toFixed(2)}</span></div>` + c.innerHTML;
+    if (!isSim) document.getElementById('realTradeCount').textContent = S.totalTrades + ' real';
+}
+
+function updateCycleHistoryUI() {
+    const el = document.getElementById('cycleHistory');
+    el.innerHTML = S.cycleHistory.map(c => {
+        const color = c.pl >= 0 ? 'var(--green)' : 'var(--red)';
+        return `<div style="background:var(--bg);padding:6px;border-radius:4px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+            <span>Cycle ${c.cycle}: ${c.wins}W/${c.losses}L</span>
+            <span style="color:${color};font-weight:700">$${c.pl.toFixed(2)}</span>
+            <span style="font-size:8px;color:var(--yellow)">${c.p1Sims} shadows</span>
+        </div>`;
+    }).join('');
+}
+
+// ============================================================
+// BACKGROUND MODE
+// ============================================================
+let audioContext = null, silentOscillator = null, silentGain = null, bgInterval = null;
 function startBackgroundMode() {
     if (!document.getElementById('backgroundMode').checked) return;
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        silentOscillator = audioContext.createOscillator();
-        silentOscillator.frequency.value = 1;
-        silentGain = audioContext.createGain();
-        silentGain.gain.value = 0.001;
-        silentOscillator.connect(silentGain);
-        silentGain.connect(audioContext.destination);
+        silentOscillator = audioContext.createOscillator(); silentOscillator.frequency.value = 1;
+        silentGain = audioContext.createGain(); silentGain.gain.value = 0.001;
+        silentOscillator.connect(silentGain); silentGain.connect(audioContext.destination);
         silentOscillator.start();
-        bgKeepAliveInterval = setInterval(() => {
-            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+        bgInterval = setInterval(() => {
+            if (audioContext?.state === 'suspended') audioContext.resume();
             if (silentGain) { silentGain.gain.setValueAtTime(0.002, audioContext.currentTime); silentGain.gain.setValueAtTime(0.001, audioContext.currentTime + 0.1); }
         }, 10000);
         document.getElementById('backgroundStatus').style.display = 'block';
-        log('📱 Background mode enabled', 'info');
-    } catch (e) { log('⚠️ Background mode failed: ' + e.message, 'alert'); }
+        log('📱 Background mode on', 'info');
+    } catch(e) { log('⚠️ Background mode failed', 'alert'); }
 }
-
 function stopBackgroundMode() {
     try {
         if (silentOscillator) { silentOscillator.stop(); silentOscillator.disconnect(); silentOscillator = null; }
         if (silentGain) { silentGain.disconnect(); silentGain = null; }
         if (audioContext) { audioContext.close(); audioContext = null; }
-        if (bgKeepAliveInterval) { clearInterval(bgKeepAliveInterval); bgKeepAliveInterval = null; }
+        if (bgInterval) { clearInterval(bgInterval); bgInterval = null; }
         document.getElementById('backgroundStatus').style.display = 'none';
-    } catch (e) {}
+    } catch(e) {}
 }
-
 document.getElementById('backgroundMode').addEventListener('change', function() {
-    if (this.checked && state.isTrading) startBackgroundMode();
-    else stopBackgroundMode();
+    if (this.checked && S.running) startBackgroundMode(); else stopBackgroundMode();
 });
 
-// MARKET PRESETS
-function applyPreset(preset) {
-    const presets = {
-        vol10: { name: 'Vol 10 (1HZ10V)', symbol: '1HZ10V', tripleThreshold: 6, doubleColdThreshold: 6, tradesPerCycle: 4, tripleCooldown: 3, s1WinTarget: 10, s1MaxTrades: 20, s1RapidFire: false, s1RapidCount: 2, strat2Threshold: 5, strat2Stability: 2, s2DigitCooldown: 8, s2MaxPerDigit: 3, s2WinTarget: 8, s2MaxTrades: 15, s2RapidFire: false, s2RapidCount: 2, scannerS1TripleMax: 2.0, scannerS1DTMax: 20, scannerS2StabilityMin: 80, scannerS2SpikeMax: 20 },
-        vol25: { name: 'Vol 25 (1HZ25V)', symbol: '1HZ25V', tripleThreshold: 7, doubleColdThreshold: 7, tradesPerCycle: 3, tripleCooldown: 5, s1WinTarget: 8, s1MaxTrades: 15, s1RapidFire: false, s1RapidCount: 2, strat2Threshold: 6, strat2Stability: 3, s2DigitCooldown: 10, s2MaxPerDigit: 2, s2WinTarget: 5, s2MaxTrades: 10, s2RapidFire: false, s2RapidCount: 2, scannerS1TripleMax: 2.5, scannerS1DTMax: 25, scannerS2StabilityMin: 70, scannerS2SpikeMax: 30 },
-        vol50: { name: 'Vol 50 (1HZ50V)', symbol: '1HZ50V', tripleThreshold: 7, doubleColdThreshold: 8, tradesPerCycle: 3, tripleCooldown: 5, s1WinTarget: 6, s1MaxTrades: 12, s1RapidFire: false, s1RapidCount: 2, strat2Threshold: 7, strat2Stability: 4, s2DigitCooldown: 15, s2MaxPerDigit: 2, s2WinTarget: 4, s2MaxTrades: 8, s2RapidFire: false, s2RapidCount: 2, scannerS1TripleMax: 3.0, scannerS1DTMax: 30, scannerS2StabilityMin: 60, scannerS2SpikeMax: 35 }
-    };
-    const p = presets[preset]; if (!p) return;
-    
-    document.getElementById('symbol').value = p.symbol;
-    document.getElementById('tripleThreshold').value = p.tripleThreshold;
-    document.getElementById('doubleColdThreshold').value = p.doubleColdThreshold;
-    document.getElementById('tradesPerCycle').value = p.tradesPerCycle;
-    document.getElementById('tripleCooldown').value = p.tripleCooldown;
-    document.getElementById('s1WinTarget').value = p.s1WinTarget;
-    document.getElementById('s1MaxTrades').value = p.s1MaxTrades;
-    document.getElementById('s1RapidFire').checked = p.s1RapidFire;
-    document.getElementById('s1RapidCount').value = p.s1RapidCount;
-    document.getElementById('strat2Threshold').value = p.strat2Threshold;
-    document.getElementById('strat2Stability').value = p.strat2Stability;
-    document.getElementById('s2DigitCooldown').value = p.s2DigitCooldown;
-    document.getElementById('s2MaxPerDigit').value = p.s2MaxPerDigit;
-    document.getElementById('s2WinTarget').value = p.s2WinTarget;
-    document.getElementById('s2MaxTrades').value = p.s2MaxTrades;
-    document.getElementById('s2RapidFire').checked = p.s2RapidFire;
-    document.getElementById('s2RapidCount').value = p.s2RapidCount;
-    document.getElementById('scannerS1TripleMax').value = p.scannerS1TripleMax;
-    document.getElementById('scannerS1DTMax').value = p.scannerS1DTMax;
-    document.getElementById('scannerS2StabilityMin').value = p.scannerS2StabilityMin;
-    document.getElementById('scannerS2SpikeMax').value = p.scannerS2SpikeMax;
-    
-    if (state.connected) changePair();
-    document.getElementById('presetStatus').textContent = `✅ ${p.name} preset applied`;
-    setTimeout(() => document.getElementById('presetStatus').textContent = '', 3000);
-    log(`⚡ Applied ${p.name} preset`, 'info');
+// ============================================================
+// CSV EXPORT
+// ============================================================
+function downloadTickData() {
+    if (!S.session.tickLog.length) return log('No data', 'loss');
+    const h = Object.keys(S.session.tickLog[0]);
+    download([h.join(','), ...S.session.tickLog.map(r => h.map(k => r[k]).join(','))].join('\n'), `ticks_${ts()}.csv`, 'text/csv');
 }
+function downloadTradeLog() {
+    if (!S.session.tradeLog.length) return log('No trades', 'loss');
+    const h = Object.keys(S.session.tradeLog[0]);
+    download([h.join(','), ...S.session.tradeLog.map(r => h.map(k => r[k]).join(','))].join('\n'), `trades_${ts()}.csv`, 'text/csv');
+}
+function downloadActivityLog() {
+    if (!S.activityLog.length) return log('No log', 'loss');
+    download(S.activityLog.map(e => `[${e.time}] ${e.message}`).join('\n'), `activity_${ts()}.txt`, 'text/plain');
+}
+function download(c, f, t) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c], { type: t })); a.download = f; a.click(); }
+function ts() { return new Date().toISOString().slice(0,19).replace(/[:-]/g,'').replace('T','_'); }
 
 // ============================================================
-// 8. INIT - Start all resilience systems on page load
+// INIT
 // ============================================================
 initKeepAliveWorker();
-
-// Try to restore from IDB on load
-(async () => {
-    const saved = await loadStateFromIDB();
-    if (saved) {
-        log(`💾 Found saved session (${Math.round((Date.now() - saved.timestamp)/60000)}min old)`, 'info');
-        log(`💾 Had ${saved.totalTrades} trades, $${saved.totalPL?.toFixed(2)} P/L, streak ${saved.bestStreak}`, 'info');
-    }
-    document.getElementById('idbStatus').textContent = 'IDB: ✅';
-    document.getElementById('idbStatus').style.color = 'var(--green)';
-})();
-
-log('🎯 DIFFERS Bot v7 loaded', 'info');
-log('🔧 Resilience: Worker ✓ WakeLock ✓ Stale ✓ AutoReconnect ✓ IDB ✓', 'info');
-log('📊 Connect → Click START → Auto-trade', 'info');
+log('🎯 DIFFERS Bot v8 — Phase Sniper loaded', 'info');
+log('🔧 Resilience: Worker ✓ WakeLock ✓ Stale ✓ Reconnect ✓ IDB ✓', 'info');
+log('📋 Phase 1: Watch → Phase 2: Trade after loss', 'info');
 </script>
 </body>
 </html>
