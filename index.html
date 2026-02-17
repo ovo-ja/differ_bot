@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V31 (The Manager)</title>
+    <title>Smart Trade Bot V31 (Fixed UI)</title>
     <style>
         :root { --bg: #0f111a; --card: #1c1f2e; --text: #fff; --sub: #8b9bb4; --blue: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f97316; --purple: #8b5cf6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 12px; }
+        .container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 12px; }
         .card { background: var(--card); border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; }
+        .balance-box { font-family: monospace; color: var(--green); font-size: 1.2em; font-weight: bold; }
         
         /* INPUTS */
         input, select { background: #0f111a; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; }
@@ -22,12 +23,11 @@
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2d3748; transition: .3s; border-radius: 20px; }
         .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background: var(--green); }
+        input:checked + .slider { background: var(--blue); }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        /* MANAGER PANEL */
-        .manager-panel { background: rgba(249, 115, 22, 0.1); border: 1px solid var(--orange); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-        .ladder-step { font-weight: bold; color: var(--orange); font-family: monospace; }
+        /* SAFETY PANEL */
+        .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
 
         /* TARGET BOX */
         .target-box { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--blue); padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px; position: relative; overflow: hidden; }
@@ -46,11 +46,12 @@
         .box.active { background: #fff !important; color: #000; transform: scale(1.1); z-index: 10; }
         
         /* BUTTONS */
-        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; width: 100%; cursor: pointer; }
+        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; width: 100%; cursor: pointer; margin-top: 5px; }
         .btn-green { background: var(--green); }
         .btn-purple { background: var(--purple); }
-        .btn-stop { background: var(--red); display: none; }
-        
+        .btn-red { background: var(--red); display: none; }
+        .btn:disabled { opacity: 0.5; }
+
         .log { font-family: monospace; font-size: 0.8em; height: 150px; overflow-y: auto; background: #0f111a; padding: 10px; border-radius: 6px; }
         .win { color: var(--green); } .loss { color: var(--red); } .info { color: var(--sub); } .warn { color: var(--orange); }
     </style>
@@ -64,30 +65,27 @@
             <input type="password" id="token" placeholder="API Token" style="width:50%">
             <button onclick="connect()" class="btn-green" style="width:30%">Link</button>
         </div>
-        <div class="row">
-            <span>Balance: <b id="balance" style="color:var(--green)">$0.00</b></span>
-            <span>Session: <b id="profit">$0.00</b></span>
+        <div id="accountInfo" style="display:none; margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+            <div class="row">
+                <span>Balance: <span id="balanceDisplay" class="balance-box">$0.00</span></span>
+                <span>Session: <span id="sessionProfit" style="font-weight:bold">$0.00</span></span>
+            </div>
         </div>
     </div>
 
-    <div class="card manager-panel">
+    <div class="card" style="border: 1px solid var(--orange); background: rgba(249, 115, 22, 0.05);">
         <div class="row" style="margin-bottom:0">
-            <span style="font-weight:bold; color:var(--orange)">🪜 MANAGER: LADDER & TIME</span>
-            <span id="ladderStatus" class="ladder-step">Step 0 / 3</span>
+            <span style="font-weight:bold; color:var(--orange)">🪜 COMPOUND LADDER</span>
+            <span id="ladderStatus" style="font-weight:bold; color:var(--orange); font-family:monospace;">Step 0 / 3</span>
         </div>
         <div class="row">
             <div style="flex:1">
                 <label>Ladder Steps:</label>
                 <input type="number" id="ladderSteps" value="3" min="1" max="10">
             </div>
-            <div style="flex:1">
-                <label>Wait Delay (s):</label>
-                <input type="text" value="2s - 6s" disabled style="opacity:0.6; text-align:center;">
+            <div style="flex:2; font-size:0.75em; color:var(--sub); line-height:1.2; padding-top:15px;">
+                Wins reinvested. Loss or End = Reset.
             </div>
-        </div>
-        <div style="font-size:0.7em; color:var(--sub); margin-top:5px; line-height:1.2;">
-            <b>Compounding:</b> Profits are reinvested for X steps to minimize exposure.<br>
-            <b>Decoupling:</b> Random time delays prevent server sync.
         </div>
     </div>
 
@@ -97,19 +95,19 @@
             <div style="flex:2">
                 <label>Market</label>
                 <select id="market" onchange="switchMarket()">
-                    <optgroup label="Volatility Indices (1s)">
+                    <optgroup label="Volatility (1s)">
                         <option value="1HZ10V">Vol 10 (1s)</option>
                         <option value="1HZ25V">Vol 25 (1s)</option>
                         <option value="1HZ50V">Vol 50 (1s)</option>
                         <option value="1HZ75V">Vol 75 (1s)</option>
                         <option value="1HZ100V" selected>Vol 100 (1s)</option>
                     </optgroup>
-                    <optgroup label="Volatility Indices">
-                        <option value="R_10">Volatility 10</option>
-                        <option value="R_25">Volatility 25</option>
-                        <option value="R_50">Volatility 50</option>
-                        <option value="R_75">Volatility 75</option>
-                        <option value="R_100">Volatility 100</option>
+                    <optgroup label="Volatility (Standard)">
+                        <option value="R_10">Vol 10</option>
+                        <option value="R_25">Vol 25</option>
+                        <option value="R_50">Vol 50</option>
+                        <option value="R_75">Vol 75</option>
+                        <option value="R_100">Vol 100</option>
                     </optgroup>
                     <optgroup label="Jump Indices">
                         <option value="JD10">Jump 10</option>
@@ -128,20 +126,30 @@
     <div class="card">
         <div class="row" style="font-weight:bold; color:var(--blue); font-size:0.9em; margin-bottom:5px;">🧠 LOGIC STACK</div>
         <div class="logic-group">
-            <div class="toggle-row"><span>🎲 <b>Entropy</b> (Random vs Random)</span><label class="switch"><input type="checkbox" id="togEntropy" onchange="updateUI()"><span class="slider"></span></label></div>
-            <div class="toggle-row"><span>🛡️ <b>Safe Pool</b> (Block Hot)</span><label class="switch"><input type="checkbox" id="togSafe" onchange="updateUI()"><span class="slider"></span></label></div>
-            <div class="toggle-row"><span>❄️ <b>Cooldown</b> (Block Last)</span><label class="switch"><input type="checkbox" id="togCool" onchange="updateUI()"><span class="slider"></span></label></div>
-            <div class="toggle-row"><span>👻 <b>Ghost Mode</b> (Wait for Loss)</span><label class="switch"><input type="checkbox" id="togGhost"><span class="slider" style="background:#4a5568"></span></label></div>
+            <div class="toggle-row"><span>🎲 <b>Entropy</b> (Random)</span><label class="switch"><input type="checkbox" id="togEntropy" onchange="updateUI()"><span class="slider"></span></label></div>
+            <div class="toggle-row"><span>🛡️ <b>Safe Pool</b> (No Hot)</span><label class="switch"><input type="checkbox" id="togSafe" onchange="updateUI()"><span class="slider"></span></label></div>
+            <div class="toggle-row"><span>❄️ <b>Cooldown</b> (No Last)</span><label class="switch"><input type="checkbox" id="togCool" onchange="updateUI()"><span class="slider"></span></label></div>
+            <div class="toggle-row"><span>👻 <b>Ghost Mode</b> (Virtual)</span><label class="switch"><input type="checkbox" id="togGhost"><span class="slider" style="background:#4a5568"></span></label></div>
         </div>
 
         <div class="target-box" id="targetBox">
             <div class="overlay" id="delayOverlay">
                 <div style="font-size:2em">⏳</div>
                 <div style="color:var(--orange); font-weight:bold">DECOUPLING</div>
-                <div style="font-size:0.8em">Randomizing Entry Time...</div>
+                <div style="font-size:0.8em">Randomizing Time...</div>
             </div>
+            
+            <div class="overlay" id="pauseOverlay">
+                <div style="font-size:2em">🛑</div>
+                <div style="color:var(--red); font-weight:bold">SAFETY PAUSE</div>
+                <div id="pauseTimer" style="font-size:1.5em; font-family:monospace">0s</div>
+            </div>
+
             <span class="ghost-badge" id="ghostBadge">👻 GHOST ACTIVE</span>
-            <div style="font-size:0.8em; margin-bottom:5px">TARGET DIGIT</div>
+            <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:5px">
+                <span>TARGET DIGIT</span>
+                <span id="tickCounter">0 / 50</span>
+            </div>
             <div class="target-digit" id="dispTarget">?</div>
             <div style="font-size:0.8em; margin-top:5px" id="dispStatus">Waiting...</div>
         </div>
@@ -149,12 +157,20 @@
         <div class="grid" id="grid"></div>
     </div>
 
+    <div class="card safety-panel">
+        <div class="row" style="margin-bottom:0; font-size:0.9em; font-weight:bold; color:var(--red);">🛡️ RHYTHM BREAKER</div>
+        <div class="row">
+            <div style="flex:1"><label>Pause on Loss (s)</label><input type="number" id="lossPause" value="30" style="border-color:var(--orange)"></div>
+            <div style="flex:1"><label>Martingale (x)</label><input type="number" id="martingale" value="11" step="0.5" style="border-color:var(--red)"></div>
+        </div>
+    </div>
+
     <div class="card">
         <div class="row">
             <span style="font-weight:bold; color:var(--purple)">🤖 AUTO MANAGER</span>
             <label class="switch"><input type="checkbox" id="togAuto" onchange="toggleAuto()"><span class="slider"></span></label>
         </div>
-        <button id="btnStop" class="btn-stop" onclick="stopAuto()">🛑 STOP AUTO</button>
+        <button id="btnStop" class="btn-red" onclick="stopAuto()">🛑 STOP AUTO</button>
         <div class="row" style="margin-top:10px">
             <button class="btn-green" style="width:100%" onclick="manualTrade()">Place 1 Manual Trade</button>
         </div>
@@ -166,9 +182,9 @@
 <script>
     const APP_ID = 1089;
     let ws, history = [], currentTarget = null, isAuto = false, ghostTrigger = false;
-    let profit = 0, baseStake = 0.35, currentStake = 0.35;
+    let profit = 0;
+    let isPaused = false, baseStake = 0.35, currentStake = 0.35, isTrading = false;
     let ladderCount = 0;
-    let isTrading = false; // Locks trading during API calls/delays
 
     // Grid Init
     const grid = document.getElementById('grid');
@@ -186,12 +202,17 @@
                 document.getElementById('status').style.color = "#10b981";
                 document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('accountInfo').style.display = 'block';
+                
                 baseStake = parseFloat(document.getElementById('stake').value);
                 currentStake = baseStake;
+
                 ws.send(JSON.stringify({balance:1, subscribe:1}));
                 subMarket();
             }
-            if(d.msg_type==='balance') document.getElementById('balance').innerText = `$${d.balance.balance}`;
+            if(d.msg_type==='balance') {
+                // FIXED ID
+                document.getElementById('balanceDisplay').innerText = d.balance.currency + " " + d.balance.balance;
+            }
             if(d.msg_type==='tick') processTick(d.tick.quote);
             if(d.msg_type==='proposal') ws.send(JSON.stringify({buy:d.proposal.id, price:d.proposal.ask_price}));
             if(d.msg_type==='proposal_open_contract' && d.proposal_open_contract.is_sold) handleResult(d.proposal_open_contract);
@@ -217,6 +238,8 @@
         history = [];
         currentTarget = null;
         updateUI();
+        const minTicks = parseInt(document.getElementById('tickMinimum').value) || 50;
+        document.getElementById('tickCounter').innerText = `0 / ${minTicks}`;
         log("Data cleared.", "info");
     }
 
@@ -229,15 +252,18 @@
         const digit = parseInt(price.toString().slice(-1));
         history.push(digit);
         const minTicks = parseInt(document.getElementById('tickMinimum').value) || 50;
+        
         if(history.length > minTicks) history.shift();
+        
+        // FIXED ID
+        document.getElementById('tickCounter').innerText = `${history.length} / ${minTicks}`;
 
-        // Visual Pulse
         const b = document.getElementById(`b${digit}`);
         if(b) { b.classList.add('active'); setTimeout(()=>b.classList.remove('active'), 200); }
 
         calculateTarget();
 
-        // Ghost Mode Logic
+        // GHOST MODE LOGIC
         if(document.getElementById('togGhost').checked) {
             document.getElementById('ghostBadge').style.display = 'block';
             if(currentTarget !== null) {
@@ -249,33 +275,31 @@
             }
         } else {
             document.getElementById('ghostBadge').style.display = 'none';
-            ghostTrigger = true; // Always armed if Ghost OFF
-            document.getElementById('targetBox').style.borderColor = "#3b82f6"; // Blue
+            ghostTrigger = true; // Always armed if OFF
+            document.getElementById('targetBox').style.borderColor = "#3b82f6";
         }
 
-        // AUTO PILOT TRIGGER
-        if(isAuto && !isTrading && ghostTrigger && currentTarget !== null) {
+        // AUTO PILOT FIRE
+        if(isAuto && !isPaused && !isTrading && ghostTrigger && currentTarget !== null) {
             startDecouplingTimer();
         }
     }
 
     function startDecouplingTimer() {
         if(isTrading) return;
-        isTrading = true; // Lock
+        isTrading = true;
         
-        // DECOUPLING TIME: 2 to 6 seconds random delay
-        const delay = Math.floor(Math.random() * 4000) + 2000;
-        
+        const delay = Math.floor(Math.random() * 2000) + 2000; // 2-4s random delay
         document.getElementById('delayOverlay').style.display = 'flex';
         
         setTimeout(() => {
             document.getElementById('delayOverlay').style.display = 'none';
-            if(isAuto) {
+            if(isAuto && !isPaused) {
                 placeTrade();
-                ghostTrigger = false; // Reset trigger
+                ghostTrigger = false; 
                 document.getElementById('targetBox').style.borderColor = "#3b82f6";
             } else {
-                isTrading = false; // Unlock if auto stopped during wait
+                isTrading = false;
             }
         }, delay);
     }
@@ -283,7 +307,6 @@
     function calculateTarget() {
         if(history.length < 10) return;
 
-        // 1. Stats
         const counts = {}; history.forEach(x => counts[x] = (counts[x]||0)+1);
         let stats = [];
         for(let i=0; i<=9; i++) {
@@ -292,9 +315,8 @@
             document.getElementById(`b${i}`).className = "box"; 
             stats.push({d:i, p:p});
         }
-        stats.sort((a,b) => a.p - b.p);
+        stats.sort((a,b) => a.p - b.p); 
 
-        // 2. Logic Filters
         let pool = [0,1,2,3,4,5,6,7,8,9];
         
         if(document.getElementById('togSafe').checked) {
@@ -308,16 +330,14 @@
             pool = pool.filter(d => d !== lastDigit);
         }
 
-        // 3. Selection
         let final = null;
-        if(pool.length === 0) pool = [stats[0].d];
+        if(pool.length === 0) pool = [stats[0].d]; 
 
         if(document.getElementById('togEntropy').checked) {
             final = pool[Math.floor(Math.random() * pool.length)];
             document.getElementById(`b${final}`).classList.add('random');
             document.getElementById('dispStatus').innerText = "Entropy Target";
         } else {
-            // Coldest Safe
             for(let s of stats) {
                 if(pool.includes(s.d)) { final = s.d; break; }
             }
@@ -331,16 +351,21 @@
 
     function manualTrade() {
         if(!currentTarget) return alert("Wait for data");
-        // Manual trade resets ladder logic
+        // Manual resets ladder
         currentStake = parseFloat(document.getElementById('stake').value);
         ladderCount = 0;
         updateLadderUI();
-        placeTrade();
+        placeTrade(true);
     }
 
-    function placeTrade() {
-        // Double check lock (though handled by isTrading)
-        
+    function placeTrade(manual = false) {
+        if(isTrading && !manual) return; // Allow manual override
+        isTrading = true;
+
+        if(manual) {
+            currentStake = parseFloat(document.getElementById('stake').value);
+        }
+
         const m = document.getElementById('market').value;
         ws.send(JSON.stringify({
             proposal: 1, amount: currentStake, barrier: currentTarget, basis: 'stake',
@@ -348,24 +373,25 @@
         }));
         
         log(`🚀 Fired on ${currentTarget} (Stake: $${currentStake})`, "info");
-        // Note: isTrading remains TRUE until result comes back
+        setTimeout(() => isTrading = false, 1500); 
     }
 
     function handleResult(c) {
         const p = parseFloat(c.profit);
         profit += p;
-        document.getElementById('profit').innerText = `$${profit.toFixed(2)}`;
-        document.getElementById('profit').style.color = profit>=0 ? "#10b981" : "#ef4444";
+        
+        // FIXED ID
+        document.getElementById('sessionProfit').innerText = `$${profit.toFixed(2)}`;
+        document.getElementById('sessionProfit').style.color = profit >= 0 ? "#10b981" : "#ef4444";
 
         if(p > 0) {
             log(`WIN +$${p}`, "win");
             processLadder(p);
         } else {
             log(`LOSS $${p}`, "loss");
-            resetLadder(); // Loss = Hard Reset
+            resetLadder(); // Loss = Reset
+            triggerSafetyProtocol();
         }
-        
-        // Unlock
         isTrading = false;
     }
 
@@ -374,10 +400,9 @@
         ladderCount++;
         
         if(ladderCount >= maxSteps) {
-            log(`🎉 Ladder Complete! Resetting to base.`, "win");
+            log(`🎉 Ladder Complete! Resetting.`, "win");
             resetLadder();
         } else {
-            // Compound: New Stake = Old Stake + Profit
             currentStake = (parseFloat(currentStake) + parseFloat(winAmount)).toFixed(2);
             log(`🪜 Step ${ladderCount}/${maxSteps}: Compounding to $${currentStake}`, "warn");
             updateLadderUI();
@@ -394,6 +419,33 @@
     function updateLadderUI() {
         const max = document.getElementById('ladderSteps').value;
         document.getElementById('ladderStatus').innerText = `Step ${ladderCount} / ${max}`;
+    }
+
+    function triggerSafetyProtocol() {
+        const pauseTime = parseInt(document.getElementById('lossPause').value);
+        const mult = parseFloat(document.getElementById('martingale').value);
+
+        if(mult > 0) {
+            currentStake = (currentStake * mult).toFixed(2);
+            log(`📈 Martingale: Next Stake $${currentStake}`, "warn");
+        }
+
+        if(pauseTime > 0) {
+            isPaused = true;
+            document.getElementById('pauseOverlay').style.display = 'flex';
+            let timeLeft = pauseTime;
+            const timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('pauseTimer').innerText = timeLeft + "s";
+                if(timeLeft <= 0) {
+                    clearInterval(timer);
+                    isPaused = false;
+                    document.getElementById('pauseOverlay').style.display = 'none';
+                    log("🟢 Safety Pause Ended.", "info");
+                }
+            }, 1000);
+            log(`🛑 RHYTHM BREAK: Pausing ${pauseTime}s...`, "warn");
+        }
     }
 
     function toggleAuto() {
