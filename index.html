@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V29 (Full Markets)</title>
+    <title>Smart Trade Bot V30 (Full Markets)</title>
     <style>
         :root { --bg: #0f111a; --card: #1c1f2e; --text: #fff; --sub: #8b9bb4; --blue: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f97316; --purple: #8b5cf6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
@@ -22,11 +22,17 @@
         input:checked + .slider { background: var(--blue); }
         input:checked + .slider:before { transform: translateX(20px); }
         
+        /* SAFETY PANEL */
+        .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+
         /* TARGET BOX */
         .target-box { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--blue); padding: 15px; border-radius: 8px; text-align: center; position: relative; overflow: hidden; }
         .target-digit { font-size: 3em; font-weight: bold; line-height: 1; transition: 0.3s; }
         .ghost-badge { position: absolute; top: 5px; right: 5px; background: var(--purple); font-size: 0.6em; padding: 2px 5px; border-radius: 4px; display: none; }
         
+        /* OVERLAYS */
+        .overlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:50; display:none; flex-direction:column; justify-content:center; align-items:center; border-radius:8px; }
+
         /* GRID */
         .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 10px; }
         .box { background: #2d3748; border-radius: 6px; padding: 8px 0; text-align: center; cursor: pointer; border: 2px solid transparent; position: relative; transition: 0.1s; }
@@ -49,12 +55,6 @@
         .win { color: var(--green); } .loss { color: var(--red); } .info { color: var(--sub); } .warn { color: var(--orange); }
         
         select, input { background: #0f111a; color: #fff; border: 1px solid #333; padding: 5px; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        
-        /* SAFETY PANEL */
-        .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-        
-        /* PAUSE OVERLAY */
-        .overlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:50; display:none; flex-direction:column; justify-content:center; align-items:center; border-radius:8px; }
     </style>
 </head>
 <body>
@@ -129,11 +129,11 @@
                 <label>Market</label>
                 <select id="market" onchange="switchMarket()">
                     <optgroup label="Volatility Indices (1s)">
-                        <option value="1HZ10V">Volatility 10 (1s)</option>
-                        <option value="1HZ25V">Volatility 25 (1s)</option>
-                        <option value="1HZ50V">Volatility 50 (1s)</option>
-                        <option value="1HZ75V">Volatility 75 (1s)</option>
-                        <option value="1HZ100V" selected>Volatility 100 (1s)</option>
+                        <option value="1HZ10V">Vol 10 (1s)</option>
+                        <option value="1HZ25V">Vol 25 (1s)</option>
+                        <option value="1HZ50V">Vol 50 (1s)</option>
+                        <option value="1HZ75V">Vol 75 (1s)</option>
+                        <option value="1HZ100V" selected>Vol 100 (1s)</option>
                     </optgroup>
                     <optgroup label="Volatility Indices">
                         <option value="R_10">Volatility 10</option>
@@ -161,11 +161,11 @@
                 <span style="font-weight:bold; color:var(--purple)">🤖 AUTO PILOT</span>
                 <label class="switch"><input type="checkbox" id="togAuto" onchange="toggleAuto()"><span class="slider"></span></label>
             </div>
-            <button id="btnStop" class="btn-red" onclick="stopAuto()">🛑 STOP AUTO</button>
+            <button id="btnStop" class="btn-red" onclick="stopAuto()">🛑 EMERGENCY STOP</button>
             <div style="text-align:center; font-size:0.8em; margin:8px 0; color:var(--sub)">Manual Controls</div>
             <div class="row">
-                <button class="btn-green" style="width:48%" onclick="manualTrade()">1 Trade</button>
-                <button class="btn-green" style="width:48%" onclick="manualSeq()">Sequence</button>
+                <button class="btn-green" style="width:48%" onclick="manualTrade()">Place 1 Trade</button>
+                <button class="btn-green" style="width:48%" onclick="manualSeq()">Run Sequence</button>
             </div>
         </div>
     </div>
@@ -218,39 +218,35 @@
     }
 
     function switchMarket() {
-        if(ws && ws.readyState === 1) {
-            ws.send(JSON.stringify({forget_all:'ticks'}));
-            setTimeout(subMarket, 500);
-        }
+        ws.send(JSON.stringify({forget_all:'ticks'}));
+        setTimeout(subMarket, 500);
     }
 
     function updateStake() {
+        // Live update of base stake
         baseStake = parseFloat(document.getElementById('stake').value);
-        if(!isTrading && !isAuto) currentStake = baseStake;
+        if(!isAuto && !isTrading) currentStake = baseStake;
     }
 
     function resetData() {
+        // Live update of tick analysis size
         history = [];
-        currentTarget = null;
-        updateUI(); // Clear UI
+        const minTicks = parseInt(document.getElementById('tickMinimum').value) || 50;
+        document.getElementById('tickCounter').innerText = `0 / ${minTicks}`;
+        log("Data Reset", "info");
     }
 
     function processTick(price) {
-        // Fix for tick counting
         const digit = parseInt(price.toString().slice(-1));
         history.push(digit);
         const minTicks = parseInt(document.getElementById('tickMinimum').value) || 50;
         
         if(history.length > minTicks) history.shift();
-
         document.getElementById('tickCounter').innerText = `${history.length} / ${minTicks}`;
 
         // Visual Pulse
         const b = document.getElementById(`b${digit}`);
-        if(b) {
-            b.classList.add('active'); 
-            setTimeout(()=>b.classList.remove('active'), 200);
-        }
+        b.classList.add('active'); setTimeout(()=>b.classList.remove('active'), 200);
 
         // Run Logic
         calculateTarget();
@@ -260,28 +256,41 @@
             document.getElementById('ghostBadge').style.display = 'block';
             if(currentTarget !== null) {
                 if(digit === currentTarget) {
-                    ghostTrigger = true; 
+                    ghostTrigger = true; // Virtual Loss = Real Trigger
                     log(`👻 Ghost Collision on ${digit}! Armed.`, "warn");
-                    document.getElementById('targetBox').style.borderColor = "#10b981"; 
+                    document.getElementById('targetBox').style.borderColor = "#10b981"; // Green light
                 }
             }
         } else {
             document.getElementById('ghostBadge').style.display = 'none';
-            ghostTrigger = true; 
+            ghostTrigger = true; // Always armed if Ghost is OFF
             document.getElementById('targetBox').style.borderColor = "#3b82f6";
         }
 
-        // Auto Pilot Execution
-        if(isAuto && !isPaused && !isTrading && ghostTrigger && currentTarget !== null) {
+        // Auto Pilot Execution (Checks Pause)
+        if(isAuto && !isPaused && ghostTrigger && currentTarget !== null && !isTrading) {
             startRandomTimer();
         }
     }
 
+    let timerRunning = false;
+    function startRandomTimer() {
+        if(timerRunning) return;
+        timerRunning = true;
+        const delay = Math.floor(Math.random() * 2000) + 2000; // 2-4s random delay
+        
+        setTimeout(() => {
+            if(isAuto && !isPaused && !isTrading) {
+                placeTrade();
+                ghostTrigger = false; // Sniper shot taken, disarm
+                document.getElementById('targetBox').style.borderColor = "#3b82f6";
+            }
+            timerRunning = false;
+        }, delay);
+    }
+
     function calculateTarget() {
-        if(history.length < 10) {
-            document.getElementById('dispStatus').innerText = "Collecting data...";
-            return;
-        }
+        if(history.length < 10) return;
 
         // 1. Stats
         const counts = {};
@@ -291,17 +300,17 @@
         for(let i=0; i<=9; i++) {
             const p = (counts[i]||0)/history.length*100;
             document.getElementById(`p${i}`).innerText = p.toFixed(0)+"%";
-            document.getElementById(`b${i}`).className = "box"; 
+            document.getElementById(`b${i}`).className = "box"; // Reset
             stats.push({d:i, p:p});
         }
-        stats.sort((a,b) => a.p - b.p); 
+        stats.sort((a,b) => a.p - b.p); // Sort Coldest to Hottest
 
         // 2. Filter Pool
         let pool = [0,1,2,3,4,5,6,7,8,9];
-        const hotDigits = [stats[9].d, stats[8].d, stats[7].d];
+        const hotDigits = [stats[9].d, stats[8].d, stats[7].d]; // Top 3
         const lastDigit = history[history.length-1];
 
-        // Apply Filters
+        // Apply Logic Filters
         if(document.getElementById('togSafe').checked) {
             pool = pool.filter(d => !hotDigits.includes(d));
             hotDigits.forEach(d => document.getElementById(`b${d}`).classList.add('hot'));
@@ -312,15 +321,20 @@
 
         // 3. Selection
         let final = null;
-        if(pool.length === 0) pool = [stats[0].d]; 
+        if(pool.length === 0) pool = [stats[0].d]; // Fallback
 
         if(document.getElementById('togEntropy').checked) {
+            // Random from Safe Pool
             final = pool[Math.floor(Math.random() * pool.length)];
             document.getElementById(`b${final}`).classList.add('random');
             document.getElementById('dispStatus').innerText = "Entropy Target";
         } else {
+            // Coldest from Safe Pool
             for(let s of stats) {
-                if(pool.includes(s.d)) { final = s.d; break; }
+                if(pool.includes(s.d)) {
+                    final = s.d;
+                    break;
+                }
             }
             document.getElementById(`b${final}`).classList.add('safe');
             document.getElementById('dispStatus').innerText = "Calculated Target";
@@ -330,32 +344,17 @@
         document.getElementById('dispTarget').innerText = final;
     }
 
-    let timerRunning = false;
-    function startRandomTimer() {
-        if(timerRunning) return;
-        timerRunning = true;
-        const delay = Math.floor(Math.random() * 2000) + 2000; 
-        
-        setTimeout(() => {
-            if(isAuto && !isPaused && !isTrading) {
-                placeTrade();
-                ghostTrigger = false; 
-                document.getElementById('targetBox').style.borderColor = "#3b82f6";
-            }
-            timerRunning = false;
-        }, delay);
-    }
-
     function manualTrade() {
         if(!currentTarget) return alert("Wait for data");
-        placeTrade(true); 
+        placeTrade(true);
     }
-    
-    // Stub for Sequence (can be expanded later)
+
     function manualSeq() {
-        manualTrade();
-        setTimeout(manualTrade, 2000);
-        setTimeout(manualTrade, 4000);
+        if(!currentTarget) return alert("Wait for data");
+        // Simple 3-trade sequence for manual
+        placeTrade(true);
+        setTimeout(() => { if(!isPaused) placeTrade(true); }, 2500);
+        setTimeout(() => { if(!isPaused) placeTrade(true); }, 5000);
     }
 
     function placeTrade(manual = false) {
@@ -374,25 +373,18 @@
         
         log(`🚀 Fired on ${currentTarget} (Stake: $${currentStake})`, "info");
         
-        // Cooldown to prevent double firing
-        setTimeout(() => isTrading = false, 1500); 
+        setTimeout(() => isTrading = false, 1500);
     }
 
     function handleResult(c) {
         const p = parseFloat(c.profit);
         profit += p;
+        // document.getElementById('profit').innerText = `$${profit.toFixed(2)}`;
         
-        // Update Session Profit Logic
-        const profitEl = document.getElementById('sessionProfit') || {innerText: ''}; // Fallback if missing
-        if(document.getElementById('sessionProfit')) {
-             document.getElementById('sessionProfit').innerText = `$${profit.toFixed(2)}`;
-             document.getElementById('sessionProfit').style.color = profit>=0 ? "#10b981" : "#ef4444";
-        }
-
         if(p > 0) {
             log(`WIN +$${p}`, "win");
             baseStake = parseFloat(document.getElementById('stake').value);
-            currentStake = baseStake; 
+            currentStake = baseStake; // Reset Martingale
         } else {
             log(`LOSS $${p}`, "loss");
             triggerSafetyProtocol();
@@ -403,14 +395,17 @@
         const pauseTime = parseInt(document.getElementById('lossPause').value);
         const mult = parseFloat(document.getElementById('martingale').value);
 
+        // 1. Martingale Logic
         if(mult > 0) {
             currentStake = (currentStake * mult).toFixed(2);
             log(`📈 Martingale: Next Stake $${currentStake}`, "warn");
         }
 
+        // 2. Rhythm Breaker (Pause) Logic
         if(pauseTime > 0) {
             isPaused = true;
             document.getElementById('pauseOverlay').style.display = 'flex';
+            
             let timeLeft = pauseTime;
             const timer = setInterval(() => {
                 timeLeft--;
@@ -419,9 +414,10 @@
                     clearInterval(timer);
                     isPaused = false;
                     document.getElementById('pauseOverlay').style.display = 'none';
-                    log("🟢 Safety Pause Ended.", "info");
+                    log("🟢 Safety Pause Ended. Resuming.", "info");
                 }
             }, 1000);
+            
             log(`🛑 RHYTHM BREAK: Pausing ${pauseTime}s...`, "warn");
         }
     }
@@ -431,7 +427,7 @@
         if(isAuto) {
             document.getElementById('btnStop').style.display = 'block';
             currentStake = parseFloat(document.getElementById('stake').value);
-            log("🤖 Auto-Pilot Started", "info");
+            log("🤖 Auto-Pilot Armed (Waiting for Trigger)", "info");
         } else {
             stopAuto();
         }
@@ -443,8 +439,6 @@
         document.getElementById('btnStop').style.display = 'none';
         log("🛑 Auto-Pilot Stopped", "warn");
     }
-    
-    function updateUI() { calculateTarget(); }
 
     function log(m, c) {
         const d = new Date().toLocaleTimeString();
