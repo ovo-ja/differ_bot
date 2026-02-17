@@ -3,19 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V23 (Custom Entropy)</title>
+    <title>Smart Trade Bot V25 (Logic Stack)</title>
     <style>
-        :root {
-            --bg-dark: #0f111a;
-            --card-bg: #1c1f2e;
-            --text-primary: #ffffff;
-            --text-secondary: #8b9bb4;
-            --accent-blue: #3b82f6;
-            --accent-red: #ef4444;
-            --accent-green: #10b981;
-            --accent-orange: #f97316;
-            --accent-purple: #8b5cf6;
-        }
+        :root { --bg-dark: #0f111a; --card-bg: #1c1f2e; --text-primary: #ffffff; --text-secondary: #8b9bb4; --accent-blue: #3b82f6; --accent-red: #ef4444; --accent-green: #10b981; --accent-orange: #f97316; --accent-purple: #8b5cf6; }
         body { font-family: 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-dark); color: var(--text-primary); margin: 0; padding: 20px; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 15px; }
         .card { background-color: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
@@ -26,40 +16,41 @@
         
         .autopilot-wrapper { background: rgba(16, 185, 129, 0.05); border: 1px solid var(--accent-green); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
         .autopilot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
+        
+        /* LOGIC STACK STYLES */
+        .logic-stack { background: rgba(59, 130, 246, 0.05); border: 1px solid var(--accent-blue); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .logic-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .logic-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .logic-label { font-size: 0.9em; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2d3748; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent-green); }
-        input:checked + .slider:before { transform: translateX(26px); }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-blue); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        /* Different colors for switches */
+        #entropyToggle:checked + .slider { background-color: var(--accent-purple); }
+        #safeToggle:checked + .slider { background-color: var(--accent-green); }
+        #coolToggle:checked + .slider { background-color: var(--accent-blue); }
+        #ghostToggle:checked + .slider { background-color: var(--text-secondary); }
 
-        /* ENTROPY TOGGLE STYLE */
-        .entropy-wrapper { background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-        .entropy-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .entropy-label { font-weight: bold; color: var(--accent-purple); font-size: 0.9em; }
-
-        .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1em; margin-bottom: 10px; transition: all 0.5s; }
-        .target-number-container { height: 60px; position: relative; margin: 5px 0; }
-        .target-number { font-size: 2.5em; font-weight: bold; display: block; width: 100%; position: absolute; top: 0; left: 0; transition: transform 0.4s, opacity 0.4s; }
-        .slide-in { transform: translateY(0); opacity: 1; }
-        .slide-out-up { transform: translateY(-30px); opacity: 0; }
-        .slide-in-up { transform: translateY(30px); opacity: 0; } 
+        .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1em; margin-bottom: 10px; transition: all 0.5s; position: relative; }
+        .target-number { font-size: 2.5em; font-weight: bold; display: block; height: 50px; transition: transform 0.3s; }
+        .ghost-badge { position: absolute; top: 5px; right: 5px; font-size: 0.6em; background: var(--text-secondary); color: #000; padding: 2px 5px; border-radius: 4px; display: none; font-weight: bold; }
         
         .digit-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .digit-box { background-color: #2d3748; border-radius: 8px; padding: 8px 4px; text-align: center; font-size: 0.9em; transition: all 0.1s; border: 2px solid transparent; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; }
-        .digit-box:hover { background-color: #374151; }
         
-        .cold-digit { background-color: rgba(59, 130, 246, 0.15); border: 2px solid var(--accent-blue); }
-        .second-cold-digit { background-color: rgba(249, 115, 22, 0.15); border: 2px solid var(--accent-orange); } 
-        .hot-digit { border: 2px solid var(--accent-red); opacity: 0.9; }
-        .manual-digit { background-color: rgba(139, 92, 246, 0.2) !important; border-color: var(--accent-purple) !important; }
-        .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); } 
-
+        .cold-digit { border-color: var(--accent-blue); }
+        .hot-digit { border-color: var(--accent-red); opacity: 0.5; }
+        .safe-digit { border-color: var(--accent-green); background: rgba(16, 185, 129, 0.1); }
+        .random-digit { border-color: var(--accent-purple) !important; background: rgba(139, 92, 246, 0.2) !important; }
+        .manual-digit { border-color: var(--accent-orange) !important; background: rgba(249, 115, 22, 0.2) !important; }
         .active-tick { background-color: #ffffff !important; color: #000000 !important; transform: scale(1.1); z-index: 10; }
 
         .badge { font-size: 0.6em; padding: 2px 6px; border-radius: 4px; position: absolute; top: -5px; right: -5px; font-weight: bold; display: none; z-index: 5; }
         .cold-digit .badge-cold { display: block; background-color: var(--accent-blue); color: white; }
-        .second-cold-digit .badge-safe { display: block; background-color: var(--accent-orange); color: white; }
         .hot-digit .badge-hot { display: block; background-color: var(--accent-red); color: white; }
         .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; }
 
@@ -120,23 +111,10 @@
                 <select id="market" onchange="switchMarket()">
                     <optgroup label="Jump Indices">
                         <option value="JD10" data-digits="2">Jump 10 Index</option>
-                        <option value="JD25" data-digits="2">Jump 25 Index</option>
-                        <option value="JD50" data-digits="2">Jump 50 Index</option>
-                        <option value="JD75" data-digits="2">Jump 75 Index</option>
                         <option value="JD100" data-digits="2" selected>Jump 100 Index</option>
                     </optgroup>
-                    <optgroup label="Volatility (Standard)">
-                        <option value="R_10" data-digits="3">Volatility 10</option>
-                        <option value="R_25" data-digits="3">Volatility 25</option>
-                        <option value="R_50" data-digits="4">Volatility 50</option>
-                        <option value="R_75" data-digits="4">Volatility 75</option>
-                        <option value="R_100" data-digits="2">Volatility 100</option>
-                    </optgroup>
-                    <optgroup label="Volatility (1s - Fast)">
+                    <optgroup label="Volatility (1s)">
                         <option value="1HZ10V" data-digits="2">Vol 10 (1s)</option>
-                        <option value="1HZ25V" data-digits="2">Vol 25 (1s)</option>
-                        <option value="1HZ50V" data-digits="2">Vol 50 (1s)</option>
-                        <option value="1HZ75V" data-digits="2">Vol 75 (1s)</option>
                         <option value="1HZ100V" data-digits="2">Vol 100 (1s)</option>
                     </optgroup>
                 </select>
@@ -148,8 +126,48 @@
         </div>
         <div>
             <label>Tick Analysis Minimum</label>
-            <input type="number" id="tickMinimum" value="50" min="10" onchange="enforceMinimum()">
+            <input type="number" id="tickMinimum" value="25" min="10" onchange="enforceMinimum()">
         </div>
+    </div>
+
+    <div class="card">
+        <div class="logic-stack">
+            <div style="color:var(--accent-blue); font-weight:bold; margin-bottom:10px;">🧠 LOGIC STACK</div>
+            
+            <div class="logic-row">
+                <span class="logic-label" style="color:var(--accent-purple)">🎲 Entropy Mode</span>
+                <label class="switch"><input type="checkbox" id="entropyToggle" onchange="updateUI()"><span class="slider"></span></label>
+            </div>
+            
+            <div class="logic-row">
+                <span class="logic-label" style="color:var(--accent-green)">🛡️ Safe Pool <span style="font-size:0.7em; font-weight:normal; color:#8b9bb4;">(Block Top 3 Hot)</span></span>
+                <label class="switch"><input type="checkbox" id="safeToggle" checked onchange="updateUI()"><span class="slider"></span></label>
+            </div>
+            
+            <div class="logic-row">
+                <span class="logic-label" style="color:var(--accent-blue)">❄️ Cooldown <span style="font-size:0.7em; font-weight:normal; color:#8b9bb4;">(Block Last Digit)</span></span>
+                <label class="switch"><input type="checkbox" id="coolToggle" onchange="updateUI()"><span class="slider"></span></label>
+            </div>
+
+            <div class="logic-row">
+                <span class="logic-label" style="color:var(--text-secondary)">👻 Ghost Mode <span style="font-size:0.7em; font-weight:normal; color:#8b9bb4;">(Wait for Collision)</span></span>
+                <label class="switch"><input type="checkbox" id="ghostToggle" onchange="toggleGhost()"><span class="slider"></span></label>
+            </div>
+        </div>
+
+        <div id="targetBox" class="target-display target-waiting">
+            <span class="ghost-badge" id="ghostBadge">👻 GHOST ACTIVE</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em;">
+                <span style="font-weight: bold;">TARGET DIGIT</span>
+                <span id="tickCounter" style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 12px;">0 / 25 Ticks</span>
+            </div>
+            <div class="target-number-container"><span id="targetDigitDisplay" class="target-number slide-in">⏳</span></div>
+            <span id="targetStatusMsg" style="font-size: 0.8em;">Collecting data...</span>
+            <div id="countdownOverlay">⏳ NEXT TRADE IN: <span id="countdownTimer">0</span>s</div>
+        </div>
+        
+        <div class="digit-grid" id="digitGrid"></div>
+        <div style="text-align: center; font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">👆 Click any digit above to override target</div>
     </div>
 
     <div class="card">
@@ -161,97 +179,45 @@
                     <span class="slider"></span>
                 </label>
             </div>
-            
-            <div style="display:flex; gap:10px; align-items:center; margin-bottom:5px;">
-                <div style="flex:1">
-                    <label style="color:var(--accent-red);">Max Limit (%):</label>
-                    <input type="number" id="threshold" value="9" style="margin:0; border-color:var(--accent-red);">
-                </div>
-                <div style="flex:1">
-                    <label style="color:var(--accent-orange);">Safe Floor (%):</label>
-                    <input type="number" id="safeFloor" value="2" style="margin:0; border-color:var(--accent-orange);">
-                </div>
-            </div>
-        </div>
-
-        <div class="entropy-wrapper">
-            <div class="entropy-header">
-                <span class="entropy-label">🎲 Entropy Mode</span>
-                <label class="switch" style="transform: scale(0.8);">
-                    <input type="checkbox" id="entropyToggle" onchange="toggleEntropy()">
-                    <span class="slider" style="background-color: #4b5563;"></span>
-                </label>
-            </div>
             <div style="display:flex; gap:10px; align-items:center;">
-                <label style="flex:1; margin:0; font-size:0.8em;">Sample Size (Ticks):</label>
-                <input type="number" id="entropySize" value="25" min="5" max="100" style="flex:1; margin:0; border-color:var(--accent-purple);" onchange="toggleEntropy()">
+                <label style="flex:1; margin:0; color:var(--accent-red);">Trigger Below:</label>
+                <input type="number" id="threshold" value="9" style="flex:2; margin:0; border-color:var(--accent-red);">
+                <span style="font-size:0.8em; color:#8b9bb4;">%</span>
             </div>
         </div>
 
-        <div id="targetBox" class="target-display target-waiting">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em;">
-                <span style="font-weight: bold;">TARGET DIGIT</span>
-                <span id="tickCounter" style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 12px;">0 / 50 Ticks</span>
-            </div>
-            
-            <div class="target-number-container">
-                <span id="targetDigitDisplay" class="target-number slide-in">⏳</span>
-            </div>
-            
-            <span id="targetStatusMsg" style="font-size: 0.8em;">Collecting data...</span>
-            <div id="countdownOverlay">⏳ NEXT TRADE IN: <span id="countdownTimer">0</span>s</div>
-        </div>
-        
-        <div class="digit-grid" id="digitGrid"></div>
-        <div style="text-align: center; font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">👆 Click any digit above to override target</div>
-    </div>
-
-    <div class="card">
         <div class="header">🛠️ Sequence Builder</div>
-        
         <div class="sequence-controls">
-            <div style="flex:1;">
-                <label style="color:var(--accent-purple);">Total Trades:</label>
-                <input type="number" id="seqLength" value="5" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
-            </div>
-            <div style="flex:2; font-size:0.8em; color:var(--text-secondary); line-height:1.2;">
-                Auto-Pilot will use these settings for the sequence.
-            </div>
+            <div style="flex:1;"><label style="color:var(--accent-purple);">Total Trades:</label><input type="number" id="seqLength" value="5" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);"></div>
         </div>
-
         <div id="sequenceContainer" class="sequence-grid"></div>
 
         <button id="btnStartCustom" class="btn btn-purple" onclick="runCustomSequence()">⚡ Run Sequence</button>
         <button id="btnSingle" class="btn btn-green" onclick="placeSingleManualTrade()">✅ Place Single Trade</button>
         <button id="btnStop" class="btn btn-stop" onclick="stopTrading()">🛑 STOP TRADING</button>
-        
         <div id="loadingBar" style="height: 4px; background: #2d3748; margin-top: 5px; border-radius: 2px; overflow: hidden; display: none;">
             <div id="progressFill" style="height: 100%; width: 0%; background: var(--accent-purple); transition: width 0.3s;"></div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="header">📜 Activity Log</div>
-        <div class="log-area" id="logArea"></div>
-    </div>
+    <div class="card"><div class="log-area" id="logArea"></div></div>
 </div>
 
 <script>
     const APP_ID = 1089;
     let ws;
     let tickHistory = [];
-    let currentTargetDigit = null;
+    let currentTargetDigit = null; // The visual target
+    let internalGhostTarget = null; // The target Ghost Mode is watching
     let currentMinPerc = 100;
     let manualOverrideDigit = null;
     let isAutoPilot = false; 
-    let isEntropyMode = false;
-    let sessionProfit = 0;
     let isRunning = false;
     let shouldStop = false;
     let displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
     let isConnected = false;
+    let ghostTriggered = false; // Has ghost mode collided?
 
-    // Init
     window.onload = function() { updateSequenceUI(); };
 
     const grid = document.getElementById('digitGrid');
@@ -259,7 +225,6 @@
         grid.innerHTML += `
             <div class="digit-box" id="dbox-${i}" onclick="selectManualDigit(${i})">
                 <span class="badge badge-cold">COLD</span>
-                <span class="badge badge-safe">SAFE</span>
                 <span class="badge badge-hot">HOT</span>
                 <span class="badge badge-rnd">🎲 RND</span>
                 <span id="emoji-${i}" class="result-emoji"></span>
@@ -270,19 +235,10 @@
     function updateSequenceUI() {
         const length = parseInt(document.getElementById('seqLength').value) || 1;
         const container = document.getElementById('sequenceContainer');
-        const existingValues = Array.from(container.querySelectorAll('select')).map(s => s.value);
         container.innerHTML = ''; 
         for(let i=0; i<length; i++) {
-            let def = (i < existingValues.length) ? existingValues[i] : (i === 0 ? "60" : "0");
-            container.insertAdjacentHTML('beforeend', `
-                <div class="seq-step">
-                    <label>Trade ${i+1}</label>
-                    <select class="seq-select" id="seq-delay-${i}">
-                        <option value="0" ${def==="0"?"selected":""}>Instant</option>
-                        <option value="60" ${def==="60"?"selected":""}>Wait 1m</option>
-                        <option value="120" ${def==="120"?"selected":""}>Wait 2m</option>
-                    </select>
-                </div>`);
+            let def = (i===0) ? "60" : "0";
+            container.insertAdjacentHTML('beforeend', `<div style="background:#252a3d; padding:5px; border-radius:4px; text-align:center;"><label style="font-size:0.7em; color:var(--accent-purple)">#${i+1}</label><select id="seq-delay-${i}" style="padding:2px; font-size:0.8em; margin:0"><option value="0" ${def==="0"?"selected":""}>Inst</option><option value="60" ${def==="60"?"selected":""}>1m</option><option value="120">2m</option></select></div>`);
         }
     }
 
@@ -298,16 +254,18 @@
         }, 300);
     }
 
-    function toggleEntropy() {
-        isEntropyMode = document.getElementById('entropyToggle').checked;
-        const sampleSize = document.getElementById('entropySize').value;
-        if(isEntropyMode) {
-            log(`🎲 Entropy Mode ENABLED (Sample: ${sampleSize})`, "log-info");
+    function toggleGhost() {
+        const isGhost = document.getElementById('ghostToggle').checked;
+        if(isGhost) {
+            document.getElementById('ghostBadge').style.display = "block";
+            document.getElementById('targetBox').style.borderColor = "var(--text-secondary)"; // Grey waiting
+            log("👻 Ghost Mode ARMED: Waiting for virtual loss...", "log-info");
+            ghostTriggered = false;
         } else {
-            log("📊 Entropy Mode DISABLED: Returning to Statistics", "log-info");
+            document.getElementById('ghostBadge').style.display = "none";
+            ghostTriggered = true; // Always true if mode is off
+            updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value));
         }
-        // Force update to refresh target logic
-        if(tickHistory.length > 0) updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value));
     }
 
     function toggleAutoPilot() {
@@ -335,29 +293,26 @@
     async function startAutoPilotWatch() {
         shouldStop = false;
         while(isAutoPilot && !shouldStop) {
+            // Check Ghost Status
+            const isGhost = document.getElementById('ghostToggle').checked;
+            if (isGhost && !ghostTriggered) {
+                // Wait for ghost collision...
+                await new Promise(r => setTimeout(r, 500));
+                continue;
+            }
+
             if(currentTargetDigit === null) { await new Promise(r => setTimeout(r, 1000)); continue; }
             
             const maxThreshold = parseFloat(document.getElementById('threshold').value);
             
-            // Logic: In Entropy Mode, we generally just fire because it's random
-            // But if user wants safety, we only fire if Random Digit's % is <= Threshold
             if(currentMinPerc <= maxThreshold) {
                 log(`🎯 TRIGGERED: Target (${currentTargetDigit}) is ${currentMinPerc.toFixed(1)}%`, "log-win");
                 await runCustomSequence(true);
                 document.getElementById('autoPilotToggle').click(); 
                 break;
             }
-            await new Promise(r => setTimeout(r, 2000));
+            await new Promise(r => setTimeout(r, 1000));
         }
-    }
-
-    function selectManualDigit(digit) {
-        if(isAutoPilot) return alert("Disable Auto-Pilot first.");
-        manualOverrideDigit = digit;
-        document.querySelectorAll('.manual-digit').forEach(el => el.classList.remove('manual-digit'));
-        document.getElementById(`dbox-${digit}`).classList.add('manual-digit');
-        updateTargetBoxVisuals(digit, true);
-        log(`🎯 Target: Digit ${digit}`, "log-warn");
     }
 
     function connectAPI() {
@@ -419,6 +374,17 @@
         const select = document.getElementById('market');
         const decimals = parseInt(select.options[select.selectedIndex].getAttribute('data-digits')) || 2;
         const digit = parseInt(Number(price).toFixed(decimals).slice(-1));
+        
+        // GHOST MODE CHECK (Must happen BEFORE adding new digit to history)
+        if (document.getElementById('ghostToggle').checked && !ghostTriggered && internalGhostTarget !== null) {
+            if (internalGhostTarget === digit) {
+                ghostTriggered = true;
+                log(`👻 Ghost Collision! (Target ${internalGhostTarget} hit). Live Trading Enabled.`, "log-win");
+                document.getElementById('targetBox').style.borderColor = "var(--accent-green)";
+                document.getElementById('ghostBadge').style.background = "var(--accent-green)";
+            }
+        }
+
         tickHistory.push(digit);
         if(tickHistory.length > min) tickHistory.shift();
         const box = document.getElementById(`dbox-${digit}`);
@@ -432,66 +398,82 @@
         
         // 1. Calc Stats
         const stats = [];
-        let maxPerc = -1;
-        let hot = -1;
-        
         for(let i=0; i<=9; i++) {
             const p = count === 0 ? 0 : (counts[i] || 0) / count * 100;
             displayedPercentages[i] += (p - displayedPercentages[i]) * 0.2;
             document.getElementById(`dp-${i}`).innerText = displayedPercentages[i].toFixed(1) + "%";
-            
-            // Clean Styles
-            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'second-cold-digit', 'hot-digit', 'random-digit');
-            
+            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'hot-digit', 'random-digit', 'safe-digit');
             stats.push({ digit: i, perc: p });
-            if(p > maxPerc) { maxPerc = p; hot = i; }
         }
-        if(hot !== -1) document.getElementById(`dbox-${hot}`).classList.add('hot-digit');
+        
+        // Identify Hot/Cold
+        stats.sort((a, b) => a.perc - b.perc); // Coldest first
+        const hotDigits = [stats[9].digit, stats[8].digit, stats[7].digit];
+        hotDigits.forEach(d => document.getElementById(`dbox-${d}`).classList.add('hot-digit'));
 
-        // 2. DETERMINE TARGET
+        // 2. LOGIC PIPELINE
+        const isEntropy = document.getElementById('entropyToggle').checked;
+        const useSafe = document.getElementById('safeToggle').checked;
+        const useCool = document.getElementById('coolToggle').checked;
+        
+        // Start with full pool
+        let pool = [0,1,2,3,4,5,6,7,8,9];
+        
+        // Filter 1: Safe Pool (Remove Hot)
+        if (useSafe) {
+            pool = pool.filter(d => !hotDigits.includes(d));
+        }
+        
+        // Filter 2: Cooldown (Remove Last Digit)
+        if (useCool && tickHistory.length > 0) {
+            const lastDigit = tickHistory[tickHistory.length-1];
+            pool = pool.filter(d => d !== lastDigit);
+        }
+
+        // Selection
         let finalTarget = -1;
         
-        if (isEntropyMode) {
-            // --- ENTROPY LOGIC ---
-            // User-Defined Sample Size
-            const sampleSize = parseInt(document.getElementById('entropySize').value) || 20;
-            const recentTicks = tickHistory.slice(-sampleSize);
-            
-            if(recentTicks.length > 0) {
-                // Pseudo-random selection from history
-                const randomIndex = Math.floor(Math.random() * recentTicks.length);
-                finalTarget = recentTicks[randomIndex];
-                
+        if (isEntropy) {
+            // Random from Safe Pool
+            if (pool.length > 0) {
+                const rndIndex = Math.floor(Math.random() * pool.length);
+                finalTarget = pool[rndIndex];
                 document.getElementById(`dbox-${finalTarget}`).classList.add('random-digit');
-                
-                // Update percentage for Auto-Pilot logic
-                currentMinPerc = displayedPercentages[finalTarget]; // Use the real % of this random digit
+            } else {
+                finalTarget = stats[0].digit; // Fallback
             }
         } else {
-            // --- STANDARD LOGIC ---
-            stats.sort((a, b) => a.perc - b.perc);
-            const safeFloor = parseFloat(document.getElementById('safeFloor').value);
-            
-            let candidate = stats[0]; // Coldest
-            
-            if(candidate.perc < safeFloor) {
-                candidate = stats[1]; // Switch to 2nd coldest
-                document.getElementById(`dbox-${stats[0].digit}`).classList.add('cold-digit'); // Blue (Danger)
-                document.getElementById(`dbox-${stats[1].digit}`).classList.add('second-cold-digit'); // Orange (Safe)
-            } else {
-                document.getElementById(`dbox-${candidate.digit}`).classList.add('cold-digit'); // Blue (Safe)
+            // Coldest from Safe Pool
+            // Find first digit in stats that exists in our filtered pool
+            for(let s of stats) {
+                if(pool.includes(s.digit)) {
+                    finalTarget = s.digit;
+                    document.getElementById(`dbox-${finalTarget}`).classList.add('cold-digit');
+                    break;
+                }
             }
-            finalTarget = candidate.digit;
-            currentMinPerc = candidate.perc;
         }
 
-        // 3. UI Update
-        if(!manualOverrideDigit) {
-            if(count < min) {
+        // 3. GHOST & UI UPDATE
+        internalGhostTarget = finalTarget; // Always calculate logic target
+        
+        const isGhost = document.getElementById('ghostToggle').checked;
+        
+        if (!manualOverrideDigit) {
+            if (count < min) {
                 updateTargetBoxVisuals(null, false);
+            } else if (isGhost && !ghostTriggered) {
+                // Ghost is ON but not triggered yet -> Show Waiting
+                document.getElementById('targetDigitDisplay').innerText = "👻";
+                document.getElementById('targetStatusMsg').innerText = `Virtual Target: ${finalTarget}`;
+                currentTargetDigit = null; // Disable real trading
             } else {
-                if(currentTargetDigit !== finalTarget) {
+                // Normal Operation (or Ghost Triggered)
+                if (currentTargetDigit !== finalTarget) {
                     currentTargetDigit = finalTarget;
+                    // Find percentage of this target
+                    const targetStat = stats.find(s => s.digit === finalTarget);
+                    currentMinPerc = targetStat ? targetStat.perc : 0;
                     updateTargetBoxVisuals(finalTarget, false);
                 }
             }
@@ -504,9 +486,7 @@
         const targetBox = document.getElementById('targetBox');
         
         if(digit === null) {
-            displayEl.innerText = "⏳"; statusEl.innerText = `Collecting data...`;
-            targetBox.style.borderColor = "var(--accent-orange)";
-            targetBox.style.background = "rgba(59, 130, 246, 0.1)";
+            // Usually waiting state
         } else {
             const newVal = digit.toString();
             if(displayEl.innerText !== newVal) {
@@ -514,22 +494,16 @@
                 setTimeout(() => { displayEl.innerText = newVal; displayEl.classList.remove('slide-out-up'); displayEl.classList.add('slide-in-up'); void displayEl.offsetWidth; displayEl.classList.remove('slide-in-up'); }, 300);
             }
             
-            // Check Modes
-            const box = document.getElementById(`dbox-${digit}`);
-            const isSafeMode = box.classList.contains('second-cold-digit');
-            const isRandom = box.classList.contains('random-digit');
+            const isRandom = document.getElementById('entropyToggle').checked;
             
             if(isManual) {
                 statusEl.innerText = `Manual: ${digit}`;
                 targetBox.style.borderColor = "var(--accent-orange)";
+                targetBox.style.background = "rgba(249, 115, 22, 0.1)";
             } else if(isRandom) {
                 statusEl.innerText = `🎲 Entropy Target: ${digit}`;
                 targetBox.style.borderColor = "var(--accent-purple)";
                 targetBox.style.background = "rgba(139, 92, 246, 0.1)";
-            } else if(isSafeMode) {
-                statusEl.innerText = `⚠️ Safe Floor: Using 2nd Coldest`;
-                targetBox.style.borderColor = "var(--accent-orange)";
-                targetBox.style.background = "rgba(249, 115, 22, 0.1)";
             } else {
                 statusEl.innerText = `Auto: ${digit}`;
                 targetBox.style.borderColor = "var(--accent-blue)";
@@ -569,10 +543,20 @@
 
     async function placeTrade(current, total) {
         const target = manualOverrideDigit !== null ? manualOverrideDigit : currentTargetDigit;
-        if(target === null) return;
+        if(target === null) { log("No target selected!", "log-warn"); return; }
+        
         document.getElementById('progressFill').style.width = (current / total * 100) + "%";
         ws.send(JSON.stringify({proposal:1, amount:document.getElementById('stake').value, barrier:target, basis:'stake', contract_type:'DIGITDIFF', currency:'USD', duration:1, duration_unit:'t', symbol:document.getElementById('market').value}));
         await new Promise(r => setTimeout(r, 1500));
+    }
+
+    function selectManualDigit(digit) {
+        if(isAutoPilot) return alert("Disable Auto-Pilot first.");
+        manualOverrideDigit = digit;
+        document.querySelectorAll('.manual-digit').forEach(el => el.classList.remove('manual-digit'));
+        document.getElementById(`dbox-${digit}`).classList.add('manual-digit');
+        updateTargetBoxVisuals(digit, true);
+        log(`🎯 Target: Digit ${digit}`, "log-warn");
     }
 
     function startRunState() { isRunning = true; shouldStop = false; document.getElementById('loadingBar').style.display = 'block'; document.getElementById('btnStop').style.display = 'block'; document.getElementById('btnStartCustom').disabled = true; document.getElementById('btnSingle').disabled = true; }
