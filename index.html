@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V32 (Manager + Classic UI)</title>
+    <title>Smart Trade Bot V34 (Fast Random)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -52,7 +52,7 @@
         .second-cold-digit { background-color: rgba(249, 115, 22, 0.15); border: 2px solid var(--accent-orange); } 
         .hot-digit { border: 2px solid var(--accent-red); opacity: 0.9; }
         .manual-digit { background-color: rgba(139, 92, 246, 0.2) !important; border-color: var(--accent-purple) !important; }
-        .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); } /* NEW Random Style */
+        .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); }
 
         .active-tick { background-color: #ffffff !important; color: #000000 !important; transform: scale(1.1); z-index: 10; }
 
@@ -60,7 +60,7 @@
         .cold-digit .badge-cold { display: block; background-color: var(--accent-blue); color: white; }
         .second-cold-digit .badge-safe { display: block; background-color: var(--accent-orange); color: white; }
         .hot-digit .badge-hot { display: block; background-color: var(--accent-red); color: white; }
-        .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; } /* NEW Random Badge */
+        .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; }
 
         .result-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; opacity: 0; pointer-events: none; transition: all 0.5s ease-out; z-index: 20; }
         .show-emoji { opacity: 1; transform: translate(-50%, -80%); }
@@ -298,6 +298,7 @@
                     <label>Trade ${i+1}</label>
                     <select class="seq-select" id="seq-delay-${i}">
                         <option value="0" ${def==="0"?"selected":""}>Instant</option>
+                        <option value="random">Random (2-6s)</option>
                         <option value="60" ${def==="60"?"selected":""}>Wait 1m</option>
                         <option value="120" ${def==="120"?"selected":""}>Wait 2m</option>
                     </select>
@@ -364,7 +365,7 @@
                 log(`🎯 TRIGGERED: Target (${currentTargetDigit}) is ${currentMinPerc.toFixed(1)}%`, "log-win");
                 
                 // DECOUPLING DELAY (2-6s)
-                const delay = Math.floor(Math.random() * 4000) + 2000;
+                const delay = Math.floor(Math.random() * 5000) + 2000;
                 document.getElementById('countdownOverlay').style.display = 'block';
                 document.getElementById('countdownTimer').innerText = (delay/1000).toFixed(1);
                 
@@ -373,8 +374,6 @@
 
                 if(!shouldStop) {
                     await runCustomSequence(true);
-                    // IMPORTANT: Auto Pilot STAYS ON to manage ladder
-                    // Unless a loss occurs? For now, let's keep it running to complete ladder.
                 }
             }
             await new Promise(r => setTimeout(r, 2000));
@@ -609,12 +608,25 @@
         if(isRunning && !internalCall) return; 
         startRunState();
         const length = parseInt(document.getElementById('seqLength').value) || 1;
-        const delays = Array.from({length}, (_, i) => parseInt(document.getElementById(`seq-delay-${i}`).value));
-        for(let i=0; i<delays.length; i++) {
+        
+        for(let i=0; i<length; i++) {
             if(shouldStop) break;
-            if(delays[i] > 0) {
+            
+            const delayVal = document.getElementById(`seq-delay-${i}`).value;
+            let waitTime = 0;
+            
+            if(delayVal === 'random') {
+                // RANDOM (2-6s)
+                waitTime = Math.floor(Math.random() * 5) + 2; 
+            } else {
+                waitTime = parseInt(delayVal);
+            }
+
+            if(waitTime > 0) {
                 document.getElementById('countdownOverlay').style.display = 'block';
-                for(let s=delays[i]; s>0; s--) { 
+                document.getElementById('countdownLabel').innerText = delayVal === 'random' ? "RANDOM WAIT" : "WAITING";
+                
+                for(let s=waitTime; s>0; s--) { 
                     if(shouldStop) break; 
                     document.getElementById('countdownTimer').innerText = s; 
                     await new Promise(r => setTimeout(r, 1000)); 
@@ -622,7 +634,7 @@
                 document.getElementById('countdownOverlay').style.display = 'none';
             }
             if(shouldStop) break;
-            await placeTrade(i+1, delays.length);
+            await placeTrade(i+1, length);
         }
         if(!internalCall) endRunState();
     }
