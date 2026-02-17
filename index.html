@@ -3,408 +3,459 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V31 (Fixed UI)</title>
+    <title>Smart Trade Bot V32 (Manager + Classic UI)</title>
     <style>
-        :root { --bg: #0f111a; --card: #1c1f2e; --text: #fff; --sub: #8b9bb4; --blue: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f97316; --purple: #8b5cf6; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 12px; }
-        .card { background: var(--card); border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; }
-        .balance-box { font-family: monospace; color: var(--green); font-size: 1.2em; font-weight: bold; }
+        :root {
+            --bg-dark: #0f111a;
+            --card-bg: #1c1f2e;
+            --text-primary: #ffffff;
+            --text-secondary: #8b9bb4;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
+            --accent-orange: #f97316;
+            --accent-purple: #8b5cf6;
+        }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-dark); color: var(--text-primary); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 15px; }
+        .card { background-color: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid #2d3748; padding-bottom: 10px; }
+        .balance-box { font-size: 1.5em; color: var(--accent-green); text-align: right; font-family: monospace; }
+        input, select { background-color: #0f111a; border: 1px solid #2d3748; color: white; padding: 10px; border-radius: 6px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
+        label { font-size: 0.8em; color: var(--text-secondary); margin-bottom: 4px; display: block; }
         
-        /* INPUTS */
-        input, select { background: #0f111a; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        label { font-size: 0.8em; color: var(--sub); display: block; margin-bottom: 3px; }
-        
-        /* TOGGLES */
-        .logic-group { display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
-        .toggle-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; }
-        .switch { position: relative; width: 40px; height: 20px; }
+        .autopilot-wrapper { background: rgba(16, 185, 129, 0.05); border: 1px solid var(--accent-green); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .autopilot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2d3748; transition: .3s; border-radius: 20px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background: var(--blue); }
-        input:checked + .slider:before { transform: translateX(20px); }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2d3748; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-green); }
+        input:checked + .slider:before { transform: translateX(26px); }
 
-        /* SAFETY PANEL */
-        .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        /* ENTROPY TOGGLE STYLE */
+        .entropy-wrapper { background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 8px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .entropy-label { font-weight: bold; color: var(--accent-purple); font-size: 0.9em; }
 
-        /* TARGET BOX */
-        .target-box { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--blue); padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px; position: relative; overflow: hidden; }
-        .target-digit { font-size: 3em; font-weight: bold; line-height: 1; transition: 0.3s; }
+        .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1em; margin-bottom: 10px; transition: all 0.5s; }
+        .target-number-container { height: 60px; position: relative; margin: 5px 0; }
+        .target-number { font-size: 2.5em; font-weight: bold; display: block; width: 100%; position: absolute; top: 0; left: 0; transition: transform 0.4s, opacity 0.4s; }
+        .slide-in { transform: translateY(0); opacity: 1; }
+        .slide-out-up { transform: translateY(-30px); opacity: 0; }
+        .slide-in-up { transform: translateY(30px); opacity: 0; } 
         
-        /* OVERLAYS */
-        .overlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:50; display:none; flex-direction:column; justify-content:center; align-items:center; border-radius:8px; }
-        .ghost-badge { position: absolute; top: 5px; right: 5px; background: var(--purple); font-size: 0.6em; padding: 2px 5px; border-radius: 4px; display: none; }
-
-        /* GRID */
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-        .box { background: #2d3748; border-radius: 6px; padding: 10px 0; text-align: center; border: 2px solid transparent; transition: 0.1s; position: relative; }
-        .box.safe { border-color: var(--blue); }
-        .box.hot { border-color: var(--red); opacity: 0.5; }
-        .box.random { border-color: var(--purple); background: rgba(139, 92, 246, 0.15); }
-        .box.active { background: #fff !important; color: #000; transform: scale(1.1); z-index: 10; }
+        .digit-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .digit-box { background-color: #2d3748; border-radius: 8px; padding: 8px 4px; text-align: center; font-size: 0.9em; transition: all 0.1s; border: 2px solid transparent; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; }
+        .digit-box:hover { background-color: #374151; }
         
-        /* BUTTONS */
-        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; width: 100%; cursor: pointer; margin-top: 5px; }
-        .btn-green { background: var(--green); }
-        .btn-purple { background: var(--purple); }
-        .btn-red { background: var(--red); display: none; }
-        .btn:disabled { opacity: 0.5; }
+        .cold-digit { background-color: rgba(59, 130, 246, 0.15); border: 2px solid var(--accent-blue); }
+        .second-cold-digit { background-color: rgba(249, 115, 22, 0.15); border: 2px solid var(--accent-orange); } 
+        .hot-digit { border: 2px solid var(--accent-red); opacity: 0.9; }
+        .manual-digit { background-color: rgba(139, 92, 246, 0.2) !important; border-color: var(--accent-purple) !important; }
+        .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); } /* NEW Random Style */
 
-        .log { font-family: monospace; font-size: 0.8em; height: 150px; overflow-y: auto; background: #0f111a; padding: 10px; border-radius: 6px; }
-        .win { color: var(--green); } .loss { color: var(--red); } .info { color: var(--sub); } .warn { color: var(--orange); }
+        .active-tick { background-color: #ffffff !important; color: #000000 !important; transform: scale(1.1); z-index: 10; }
+
+        .badge { font-size: 0.6em; padding: 2px 6px; border-radius: 4px; position: absolute; top: -5px; right: -5px; font-weight: bold; display: none; z-index: 5; }
+        .cold-digit .badge-cold { display: block; background-color: var(--accent-blue); color: white; }
+        .second-cold-digit .badge-safe { display: block; background-color: var(--accent-orange); color: white; }
+        .hot-digit .badge-hot { display: block; background-color: var(--accent-red); color: white; }
+        .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; } /* NEW Random Badge */
+
+        .result-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; opacity: 0; pointer-events: none; transition: all 0.5s ease-out; z-index: 20; }
+        .show-emoji { opacity: 1; transform: translate(-50%, -80%); }
+
+        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-bottom: 8px; font-size: 0.9em; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-connect { background: var(--accent-blue); }
+        .btn-green { background: var(--accent-green); }
+        .btn-purple { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
+        .btn-stop { background: var(--accent-red); display: none; }
+        
+        .log-area { font-family: monospace; font-size: 0.8em; height: 180px; overflow-y: auto; background: #0f111a; padding: 10px; border-radius: 6px; border: 1px solid #2d3748; }
+        .log-win { color: var(--accent-green); }
+        .log-loss { color: var(--accent-red); }
+        .log-info { color: var(--text-secondary); }
+        .log-warn { color: var(--accent-orange); }
+        
+        .sequence-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background: #252a3d; padding: 10px; border-radius: 8px; }
+        .sequence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; margin-bottom: 10px; max-height: 200px; overflow-y: auto; }
+        .seq-step { background: #252a3d; padding: 5px; border-radius: 6px; text-align: center; }
+        .seq-step label { font-size: 0.7em; margin-bottom: 2px; color: var(--accent-purple); display: block; }
+        .seq-select { padding: 4px; font-size: 0.75em; margin-bottom: 0; border: 1px solid #3f4760; background: #1c1f2e; }
+
+        #countdownOverlay { font-size: 0.9em; color: var(--accent-orange); font-weight: bold; margin-top: 5px; display: none; }
+        
+        /* MANAGER PANEL */
+        .manager-panel { background: rgba(249, 115, 22, 0.1); border: 1px solid var(--accent-orange); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="card">
-        <div class="row">
-            <span>🔌 Status: <span id="status" style="color:var(--red)">Offline</span></span>
-            <input type="password" id="token" placeholder="API Token" style="width:50%">
-            <button onclick="connect()" class="btn-green" style="width:30%">Link</button>
+        <div class="header">
+            <span>🔌 Connection</span>
+            <div id="statusText" style="font-size: 0.8em; color: var(--accent-red);">Disconnected</div>
         </div>
-        <div id="accountInfo" style="display:none; margin-top:10px; border-top:1px solid #333; padding-top:10px;">
-            <div class="row">
-                <span>Balance: <span id="balanceDisplay" class="balance-box">$0.00</span></span>
-                <span>Session: <span id="sessionProfit" style="font-weight:bold">$0.00</span></span>
+        <div id="loginForm">
+            <input type="password" id="apiToken" placeholder="Paste Deriv API Token">
+            <button class="btn btn-connect" onclick="connectAPI()">Connect Account</button>
+        </div>
+        <div id="accountInfo" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:#8b9bb4;">Balance:</span>
+                <span id="balanceDisplay" class="balance-box">$0.00</span>
+            </div>
+            <div style="font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">
+                Profit Session: <span id="sessionProfit">$0.00</span>
             </div>
         </div>
     </div>
 
-    <div class="card" style="border: 1px solid var(--orange); background: rgba(249, 115, 22, 0.05);">
-        <div class="row" style="margin-bottom:0">
-            <span style="font-weight:bold; color:var(--orange)">🪜 COMPOUND LADDER</span>
-            <span id="ladderStatus" style="font-weight:bold; color:var(--orange); font-family:monospace;">Step 0 / 3</span>
-        </div>
-        <div class="row">
+    <div class="card manager-panel">
+        <div style="font-weight:bold; color:var(--accent-orange); margin-bottom:5px;">🪜 MANAGER MODE</div>
+        <div style="display: flex; gap: 10px;">
             <div style="flex:1">
                 <label>Ladder Steps:</label>
                 <input type="number" id="ladderSteps" value="3" min="1" max="10">
             </div>
-            <div style="flex:2; font-size:0.75em; color:var(--sub); line-height:1.2; padding-top:15px;">
-                Wins reinvested. Loss or End = Reset.
+            <div style="flex:1">
+                <label>Current Step:</label>
+                <input type="text" id="ladderStatus" value="0 / 3" disabled style="text-align:center;">
             </div>
+        </div>
+        <div style="font-size:0.7em; color:var(--text-secondary); margin-top:5px; line-height:1.2;">
+            <b>Compounding:</b> Profits are reinvested for X steps to minimize exposure.<br>
+            <b>Decoupling:</b> Random 2-6s delays prevent server sync.
         </div>
     </div>
 
     <div class="card">
-        <div class="row">
-            <div style="flex:1"><label>Base Stake</label><input type="number" id="stake" value="0.35" onchange="updateStake()"></div>
-            <div style="flex:2">
-                <label>Market</label>
+        <div class="header" style="margin-bottom: 5px; border-bottom: none;">⚙️ Settings</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+            <div style="flex: 2;">
+                <label>Market Pair</label>
                 <select id="market" onchange="switchMarket()">
-                    <optgroup label="Volatility (1s)">
-                        <option value="1HZ10V">Vol 10 (1s)</option>
-                        <option value="1HZ25V">Vol 25 (1s)</option>
-                        <option value="1HZ50V">Vol 50 (1s)</option>
-                        <option value="1HZ75V">Vol 75 (1s)</option>
-                        <option value="1HZ100V" selected>Vol 100 (1s)</option>
+                    <optgroup label="Jump Indices">
+                        <option value="JD10" data-digits="2">Jump 10 Index</option>
+                        <option value="JD25" data-digits="2">Jump 25 Index</option>
+                        <option value="JD50" data-digits="2">Jump 50 Index</option>
+                        <option value="JD75" data-digits="2">Jump 75 Index</option>
+                        <option value="JD100" data-digits="2" selected>Jump 100 Index</option>
                     </optgroup>
                     <optgroup label="Volatility (Standard)">
-                        <option value="R_10">Vol 10</option>
-                        <option value="R_25">Vol 25</option>
-                        <option value="R_50">Vol 50</option>
-                        <option value="R_75">Vol 75</option>
-                        <option value="R_100">Vol 100</option>
+                        <option value="R_10" data-digits="3">Volatility 10</option>
+                        <option value="R_25" data-digits="3">Volatility 25</option>
+                        <option value="R_50" data-digits="4">Volatility 50</option>
+                        <option value="R_75" data-digits="4">Volatility 75</option>
+                        <option value="R_100" data-digits="2">Volatility 100</option>
                     </optgroup>
-                    <optgroup label="Jump Indices">
-                        <option value="JD10">Jump 10</option>
-                        <option value="JD25">Jump 25</option>
-                        <option value="JD50">Jump 50</option>
-                        <option value="JD75">Jump 75</option>
-                        <option value="JD100">Jump 100</option>
+                    <optgroup label="Volatility (1s - Fast)">
+                        <option value="1HZ10V" data-digits="2">Vol 10 (1s)</option>
+                        <option value="1HZ25V" data-digits="2">Vol 25 (1s)</option>
+                        <option value="1HZ50V" data-digits="2">Vol 50 (1s)</option>
+                        <option value="1HZ75V" data-digits="2">Vol 75 (1s)</option>
+                        <option value="1HZ100V" data-digits="2">Vol 100 (1s)</option>
                     </optgroup>
                 </select>
             </div>
+            <div style="flex: 1;">
+                <label>Stake ($)</label>
+                <input type="number" id="stake" value="0.35" step="0.01" onchange="updateBaseStake()">
+            </div>
         </div>
-        <label>Tick Analysis Size</label>
-        <input type="number" id="tickMinimum" value="50" min="10" onchange="resetData()">
+        <div>
+            <label>Tick Analysis Minimum</label>
+            <input type="number" id="tickMinimum" value="50" min="10" onchange="enforceMinimum()">
+        </div>
     </div>
 
     <div class="card">
-        <div class="row" style="font-weight:bold; color:var(--blue); font-size:0.9em; margin-bottom:5px;">🧠 LOGIC STACK</div>
-        <div class="logic-group">
-            <div class="toggle-row"><span>🎲 <b>Entropy</b> (Random)</span><label class="switch"><input type="checkbox" id="togEntropy" onchange="updateUI()"><span class="slider"></span></label></div>
-            <div class="toggle-row"><span>🛡️ <b>Safe Pool</b> (No Hot)</span><label class="switch"><input type="checkbox" id="togSafe" onchange="updateUI()"><span class="slider"></span></label></div>
-            <div class="toggle-row"><span>❄️ <b>Cooldown</b> (No Last)</span><label class="switch"><input type="checkbox" id="togCool" onchange="updateUI()"><span class="slider"></span></label></div>
-            <div class="toggle-row"><span>👻 <b>Ghost Mode</b> (Virtual)</span><label class="switch"><input type="checkbox" id="togGhost"><span class="slider" style="background:#4a5568"></span></label></div>
-        </div>
-
-        <div class="target-box" id="targetBox">
-            <div class="overlay" id="delayOverlay">
-                <div style="font-size:2em">⏳</div>
-                <div style="color:var(--orange); font-weight:bold">DECOUPLING</div>
-                <div style="font-size:0.8em">Randomizing Time...</div>
+        <div class="autopilot-wrapper">
+            <div class="autopilot-header">
+                <span id="controlModeText" style="font-weight:bold; color:var(--text-secondary);">✋ MANUAL MODE</span>
+                <label class="switch">
+                    <input type="checkbox" id="autoPilotToggle" onchange="toggleAutoPilot()">
+                    <span class="slider"></span>
+                </label>
             </div>
             
-            <div class="overlay" id="pauseOverlay">
-                <div style="font-size:2em">🛑</div>
-                <div style="color:var(--red); font-weight:bold">SAFETY PAUSE</div>
-                <div id="pauseTimer" style="font-size:1.5em; font-family:monospace">0s</div>
+            <div class="entropy-wrapper">
+                <span class="entropy-label">🎲 Entropy Mode (Last 20)</span>
+                <label class="switch" style="transform: scale(0.8);">
+                    <input type="checkbox" id="entropyToggle" onchange="toggleEntropy()">
+                    <span class="slider" style="background-color: #4b5563;"></span>
+                </label>
             </div>
 
-            <span class="ghost-badge" id="ghostBadge">👻 GHOST ACTIVE</span>
-            <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:5px">
-                <span>TARGET DIGIT</span>
-                <span id="tickCounter">0 / 50</span>
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:5px;">
+                <div style="flex:1">
+                    <label style="color:var(--accent-red);">Max Limit (%):</label>
+                    <input type="number" id="threshold" value="9" style="margin:0; border-color:var(--accent-red);">
+                </div>
+                <div style="flex:1">
+                    <label style="color:var(--accent-orange);">Safe Floor (%):</label>
+                    <input type="number" id="safeFloor" value="2" style="margin:0; border-color:var(--accent-orange);">
+                </div>
             </div>
-            <div class="target-digit" id="dispTarget">?</div>
-            <div style="font-size:0.8em; margin-top:5px" id="dispStatus">Waiting...</div>
         </div>
 
-        <div class="grid" id="grid"></div>
+        <div id="targetBox" class="target-display target-waiting">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em;">
+                <span style="font-weight: bold;">TARGET DIGIT</span>
+                <span id="tickCounter" style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 12px;">0 / 50 Ticks</span>
+            </div>
+            
+            <div class="target-number-container">
+                <span id="targetDigitDisplay" class="target-number slide-in">⏳</span>
+            </div>
+            
+            <span id="targetStatusMsg" style="font-size: 0.8em;">Collecting data...</span>
+            <div id="countdownOverlay">⏳ RANDOM DELAY: <span id="countdownTimer">0</span>s</div>
+        </div>
+        
+        <div class="digit-grid" id="digitGrid"></div>
+        <div style="text-align: center; font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">👆 Click any digit above to override target</div>
     </div>
 
-    <div class="card safety-panel">
-        <div class="row" style="margin-bottom:0; font-size:0.9em; font-weight:bold; color:var(--red);">🛡️ RHYTHM BREAKER</div>
-        <div class="row">
-            <div style="flex:1"><label>Pause on Loss (s)</label><input type="number" id="lossPause" value="30" style="border-color:var(--orange)"></div>
-            <div style="flex:1"><label>Martingale (x)</label><input type="number" id="martingale" value="11" step="0.5" style="border-color:var(--red)"></div>
+    <div class="card">
+        <div class="header">🛠️ Sequence Builder</div>
+        
+        <div class="sequence-controls">
+            <div style="flex:1;">
+                <label style="color:var(--accent-purple);">Total Trades:</label>
+                <input type="number" id="seqLength" value="5" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
+            </div>
+            <div style="flex:2; font-size:0.8em; color:var(--text-secondary); line-height:1.2;">
+                Auto-Pilot will use these settings for the sequence.
+            </div>
+        </div>
+
+        <div id="sequenceContainer" class="sequence-grid"></div>
+
+        <button id="btnStartCustom" class="btn btn-purple" onclick="runCustomSequence()">⚡ Run Sequence</button>
+        <button id="btnSingle" class="btn btn-green" onclick="placeSingleManualTrade()">✅ Place Single Trade</button>
+        <button id="btnStop" class="btn btn-stop" onclick="stopTrading()">🛑 STOP TRADING</button>
+        
+        <div id="loadingBar" style="height: 4px; background: #2d3748; margin-top: 5px; border-radius: 2px; overflow: hidden; display: none;">
+            <div id="progressFill" style="height: 100%; width: 0%; background: var(--accent-purple); transition: width 0.3s;"></div>
         </div>
     </div>
 
     <div class="card">
-        <div class="row">
-            <span style="font-weight:bold; color:var(--purple)">🤖 AUTO MANAGER</span>
-            <label class="switch"><input type="checkbox" id="togAuto" onchange="toggleAuto()"><span class="slider"></span></label>
-        </div>
-        <button id="btnStop" class="btn-red" onclick="stopAuto()">🛑 STOP AUTO</button>
-        <div class="row" style="margin-top:10px">
-            <button class="btn-green" style="width:100%" onclick="manualTrade()">Place 1 Manual Trade</button>
-        </div>
+        <div class="header">📜 Activity Log</div>
+        <div class="log-area" id="logArea"></div>
     </div>
-
-    <div class="card"><div class="log" id="log"></div></div>
 </div>
 
 <script>
     const APP_ID = 1089;
-    let ws, history = [], currentTarget = null, isAuto = false, ghostTrigger = false;
-    let profit = 0;
-    let isPaused = false, baseStake = 0.35, currentStake = 0.35, isTrading = false;
+    let ws;
+    let tickHistory = [];
+    let currentTargetDigit = null;
+    let currentMinPerc = 100;
+    let manualOverrideDigit = null;
+    let isAutoPilot = false; 
+    let isEntropyMode = false;
+    let sessionProfit = 0;
+    let isRunning = false;
+    let shouldStop = false;
+    let displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
+    let isConnected = false;
+    
+    // MANAGER VARIABLES
+    let baseStake = 0.35;
+    let currentStake = 0.35;
     let ladderCount = 0;
 
-    // Grid Init
-    const grid = document.getElementById('grid');
-    for(let i=0; i<=9; i++) grid.innerHTML += `<div class="box" id="b${i}"><b>${i}</b><br><span id="p${i}">0%</span></div>`;
+    // Init
+    window.onload = function() { updateSequenceUI(); };
 
-    function connect() {
-        const t = document.getElementById('token').value;
-        if(!t) return alert("Token Required");
-        ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
-        ws.onopen = () => ws.send(JSON.stringify({authorize:t}));
-        ws.onmessage = m => {
-            const d = JSON.parse(m.data);
-            if(d.msg_type==='authorize') {
-                document.getElementById('status').innerText = "Online";
-                document.getElementById('status').style.color = "#10b981";
-                document.getElementById('loginForm').style.display = 'none';
-                document.getElementById('accountInfo').style.display = 'block';
-                
-                baseStake = parseFloat(document.getElementById('stake').value);
-                currentStake = baseStake;
-
-                ws.send(JSON.stringify({balance:1, subscribe:1}));
-                subMarket();
-            }
-            if(d.msg_type==='balance') {
-                // FIXED ID
-                document.getElementById('balanceDisplay').innerText = d.balance.currency + " " + d.balance.balance;
-            }
-            if(d.msg_type==='tick') processTick(d.tick.quote);
-            if(d.msg_type==='proposal') ws.send(JSON.stringify({buy:d.proposal.id, price:d.proposal.ask_price}));
-            if(d.msg_type==='proposal_open_contract' && d.proposal_open_contract.is_sold) handleResult(d.proposal_open_contract);
-        };
+    const grid = document.getElementById('digitGrid');
+    for(let i=0; i<=9; i++) {
+        grid.innerHTML += `
+            <div class="digit-box" id="dbox-${i}" onclick="selectManualDigit(${i})">
+                <span class="badge badge-cold">COLD</span>
+                <span class="badge badge-safe">SAFE</span>
+                <span class="badge badge-hot">HOT</span>
+                <span class="badge badge-rnd">🎲 RND</span>
+                <span id="emoji-${i}" class="result-emoji"></span>
+                <b>${i}</b><br><span id="dp-${i}" style="font-size:0.75em; color: var(--text-secondary);">0.0%</span>
+            </div>`;
     }
 
-    function subMarket() {
-        const m = document.getElementById('market').value;
-        ws.send(JSON.stringify({ticks:m, subscribe:1}));
-        history = [];
-        log(`Subscribed to ${m}`, "info");
+    function updateSequenceUI() {
+        const length = parseInt(document.getElementById('seqLength').value) || 1;
+        const container = document.getElementById('sequenceContainer');
+        const existingValues = Array.from(container.querySelectorAll('select')).map(s => s.value);
+        container.innerHTML = ''; 
+        for(let i=0; i<length; i++) {
+            let def = (i < existingValues.length) ? existingValues[i] : (i === 0 ? "60" : "0");
+            container.insertAdjacentHTML('beforeend', `
+                <div class="seq-step">
+                    <label>Trade ${i+1}</label>
+                    <select class="seq-select" id="seq-delay-${i}">
+                        <option value="0" ${def==="0"?"selected":""}>Instant</option>
+                        <option value="60" ${def==="60"?"selected":""}>Wait 1m</option>
+                        <option value="120" ${def==="120"?"selected":""}>Wait 2m</option>
+                    </select>
+                </div>`);
+        }
     }
 
     function switchMarket() {
-        if(ws && ws.readyState === 1) {
-            ws.send(JSON.stringify({forget_all:'ticks'}));
-            resetData();
-            setTimeout(subMarket, 500);
+        if(!isConnected) return;
+        ws.send(JSON.stringify({ forget_all: 'ticks' }));
+        log("🔄 Switching Market...", "log-info");
+        resetData();
+        setTimeout(() => {
+            const market = document.getElementById('market').value;
+            ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+            log(`✅ Subscribed to ${market}`, "log-win");
+        }, 300);
+    }
+
+    function toggleEntropy() {
+        isEntropyMode = document.getElementById('entropyToggle').checked;
+        if(isEntropyMode) {
+            log("🎲 Entropy Mode ENABLED: Targeting Random from Last 20", "log-info");
+        } else {
+            log("📊 Entropy Mode DISABLED: Returning to Statistics", "log-info");
+        }
+        if(tickHistory.length > 0) updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value));
+    }
+
+    function toggleAutoPilot() {
+        isAutoPilot = document.getElementById('autoPilotToggle').checked;
+        const statusText = document.getElementById('controlModeText');
+        if(isAutoPilot) {
+            manualOverrideDigit = null;
+            document.querySelectorAll('.manual-digit').forEach(el => el.classList.remove('manual-digit'));
+            document.getElementById('btnStartCustom').disabled = true;
+            document.getElementById('btnSingle').disabled = true;
+            statusText.innerText = "🤖 AUTO MODE";
+            statusText.style.color = "var(--accent-green)";
+            
+            // RESET LADDER ON START
+            resetLadder();
+            
+            log(`🤖 Auto-Pilot ARMED (Manager Active).`, "log-win");
+            startAutoPilotWatch();
+        } else {
+            document.getElementById('btnStartCustom').disabled = false;
+            document.getElementById('btnSingle').disabled = false;
+            statusText.innerText = "✋ MANUAL MODE";
+            statusText.style.color = "var(--text-secondary)";
+            shouldStop = true; 
+            log("🤖 Auto-Pilot DISARMED.", "log-loss");
         }
     }
 
-    function resetData() {
-        history = [];
-        currentTarget = null;
-        updateUI();
-        const minTicks = parseInt(document.getElementById('tickMinimum').value) || 50;
-        document.getElementById('tickCounter').innerText = `0 / ${minTicks}`;
-        log("Data cleared.", "info");
-    }
+    async function startAutoPilotWatch() {
+        shouldStop = false;
+        while(isAutoPilot && !shouldStop) {
+            if(currentTargetDigit === null) { await new Promise(r => setTimeout(r, 1000)); continue; }
+            
+            const maxThreshold = parseFloat(document.getElementById('threshold').value);
+            
+            if(currentMinPerc <= maxThreshold) {
+                log(`🎯 TRIGGERED: Target (${currentTargetDigit}) is ${currentMinPerc.toFixed(1)}%`, "log-win");
+                
+                // DECOUPLING DELAY (2-6s)
+                const delay = Math.floor(Math.random() * 4000) + 2000;
+                document.getElementById('countdownOverlay').style.display = 'block';
+                document.getElementById('countdownTimer').innerText = (delay/1000).toFixed(1);
+                
+                await new Promise(r => setTimeout(r, delay));
+                document.getElementById('countdownOverlay').style.display = 'none';
 
-    function updateStake() {
-        baseStake = parseFloat(document.getElementById('stake').value);
-        if(!isTrading && !isAuto) currentStake = baseStake;
-    }
-
-    function processTick(price) {
-        const digit = parseInt(price.toString().slice(-1));
-        history.push(digit);
-        const minTicks = parseInt(document.getElementById('tickMinimum').value) || 50;
-        
-        if(history.length > minTicks) history.shift();
-        
-        // FIXED ID
-        document.getElementById('tickCounter').innerText = `${history.length} / ${minTicks}`;
-
-        const b = document.getElementById(`b${digit}`);
-        if(b) { b.classList.add('active'); setTimeout(()=>b.classList.remove('active'), 200); }
-
-        calculateTarget();
-
-        // GHOST MODE LOGIC
-        if(document.getElementById('togGhost').checked) {
-            document.getElementById('ghostBadge').style.display = 'block';
-            if(currentTarget !== null) {
-                if(digit === currentTarget) {
-                    ghostTrigger = true; 
-                    log(`👻 Ghost Collision on ${digit}! Armed.`, "warn");
-                    document.getElementById('targetBox').style.borderColor = "#10b981"; // Green
+                if(!shouldStop) {
+                    await runCustomSequence(true);
+                    // IMPORTANT: Auto Pilot STAYS ON to manage ladder
+                    // Unless a loss occurs? For now, let's keep it running to complete ladder.
                 }
             }
-        } else {
-            document.getElementById('ghostBadge').style.display = 'none';
-            ghostTrigger = true; // Always armed if OFF
-            document.getElementById('targetBox').style.borderColor = "#3b82f6";
-        }
-
-        // AUTO PILOT FIRE
-        if(isAuto && !isPaused && !isTrading && ghostTrigger && currentTarget !== null) {
-            startDecouplingTimer();
+            await new Promise(r => setTimeout(r, 2000));
         }
     }
 
-    function startDecouplingTimer() {
-        if(isTrading) return;
-        isTrading = true;
-        
-        const delay = Math.floor(Math.random() * 2000) + 2000; // 2-4s random delay
-        document.getElementById('delayOverlay').style.display = 'flex';
-        
-        setTimeout(() => {
-            document.getElementById('delayOverlay').style.display = 'none';
-            if(isAuto && !isPaused) {
-                placeTrade();
-                ghostTrigger = false; 
-                document.getElementById('targetBox').style.borderColor = "#3b82f6";
-            } else {
-                isTrading = false;
+    function selectManualDigit(digit) {
+        if(isAutoPilot) return alert("Disable Auto-Pilot first.");
+        manualOverrideDigit = digit;
+        document.querySelectorAll('.manual-digit').forEach(el => el.classList.remove('manual-digit'));
+        document.getElementById(`dbox-${digit}`).classList.add('manual-digit');
+        updateTargetBoxVisuals(digit, true);
+        log(`🎯 Target: Digit ${digit}`, "log-warn");
+    }
+
+    function connectAPI() {
+        const token = document.getElementById('apiToken').value;
+        if(!token) return alert("Enter Token");
+        ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
+        ws.onopen = () => { ws.send(JSON.stringify({ authorize: token })); log("Connecting...", "log-info"); };
+        ws.onmessage = (msg) => {
+            const data = JSON.parse(msg.data);
+            if(data.error) { log(`⚠️ Error: ${data.error.message}`, "log-loss"); return; }
+            if(data.msg_type === 'authorize') {
+                isConnected = true;
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('accountInfo').style.display = 'block';
+                document.getElementById('statusText').innerText = "Connected";
+                document.getElementById('statusText').style.color = "var(--accent-green)";
+                
+                // Init Stake
+                baseStake = parseFloat(document.getElementById('stake').value);
+                currentStake = baseStake;
+
+                ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                const market = document.getElementById('market').value;
+                ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
             }
-        }, delay);
-    }
-
-    function calculateTarget() {
-        if(history.length < 10) return;
-
-        const counts = {}; history.forEach(x => counts[x] = (counts[x]||0)+1);
-        let stats = [];
-        for(let i=0; i<=9; i++) {
-            const p = (counts[i]||0)/history.length*100;
-            document.getElementById(`p${i}`).innerText = p.toFixed(0)+"%";
-            document.getElementById(`b${i}`).className = "box"; 
-            stats.push({d:i, p:p});
-        }
-        stats.sort((a,b) => a.p - b.p); 
-
-        let pool = [0,1,2,3,4,5,6,7,8,9];
-        
-        if(document.getElementById('togSafe').checked) {
-            const hotDigits = [stats[9].d, stats[8].d, stats[7].d];
-            pool = pool.filter(d => !hotDigits.includes(d));
-            hotDigits.forEach(d => document.getElementById(`b${d}`).classList.add('hot'));
-        }
-        
-        if(document.getElementById('togCool').checked) {
-            const lastDigit = history[history.length-1];
-            pool = pool.filter(d => d !== lastDigit);
-        }
-
-        let final = null;
-        if(pool.length === 0) pool = [stats[0].d]; 
-
-        if(document.getElementById('togEntropy').checked) {
-            final = pool[Math.floor(Math.random() * pool.length)];
-            document.getElementById(`b${final}`).classList.add('random');
-            document.getElementById('dispStatus').innerText = "Entropy Target";
-        } else {
-            for(let s of stats) {
-                if(pool.includes(s.d)) { final = s.d; break; }
+            if(data.msg_type === 'balance') document.getElementById('balanceDisplay').innerText = data.balance.currency + " " + data.balance.balance;
+            if(data.msg_type === 'tick') updateStats(data.tick.quote);
+            if(data.msg_type === 'proposal') ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
+            if(data.msg_type === 'buy') {
+                log(`✅ Trade Executed! (Stake: ${currentStake})`, 'log-info');
+                ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 }));
             }
-            document.getElementById(`b${final}`).classList.add('safe');
-            document.getElementById('dispStatus').innerText = "Calculated Target";
-        }
+            if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract.is_sold) {
+                const contract = data.proposal_open_contract;
+                const profit = parseFloat(contract.profit);
+                const barrier = parseInt(contract.barrier);
+                sessionProfit += profit;
+                document.getElementById('sessionProfit').innerText = (sessionProfit >= 0 ? "+$" : "-$") + Math.abs(sessionProfit).toFixed(2);
+                document.getElementById('sessionProfit').style.color = sessionProfit >= 0 ? "var(--accent-green)" : "var(--accent-red)";
+                
+                const emojiEl = document.getElementById(`emoji-${barrier}`);
+                emojiEl.innerText = profit > 0 ? "💰" : "😞";
+                emojiEl.classList.add('show-emoji');
+                setTimeout(() => emojiEl.classList.remove('show-emoji'), 3000);
 
-        currentTarget = final;
-        document.getElementById('dispTarget').innerText = final;
+                if(profit > 0) {
+                    log(`WIN ($${profit.toFixed(2)})`, "log-win");
+                    processLadder(profit);
+                } else {
+                    log(`LOSS ($${Math.abs(profit).toFixed(2)})`, "log-loss");
+                    resetLadder();
+                }
+            }
+        };
     }
 
-    function manualTrade() {
-        if(!currentTarget) return alert("Wait for data");
-        // Manual resets ladder
-        currentStake = parseFloat(document.getElementById('stake').value);
-        ladderCount = 0;
-        updateLadderUI();
-        placeTrade(true);
-    }
-
-    function placeTrade(manual = false) {
-        if(isTrading && !manual) return; // Allow manual override
-        isTrading = true;
-
-        if(manual) {
-            currentStake = parseFloat(document.getElementById('stake').value);
-        }
-
-        const m = document.getElementById('market').value;
-        ws.send(JSON.stringify({
-            proposal: 1, amount: currentStake, barrier: currentTarget, basis: 'stake',
-            contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, duration_unit: 't', symbol: m
-        }));
-        
-        log(`🚀 Fired on ${currentTarget} (Stake: $${currentStake})`, "info");
-        setTimeout(() => isTrading = false, 1500); 
-    }
-
-    function handleResult(c) {
-        const p = parseFloat(c.profit);
-        profit += p;
-        
-        // FIXED ID
-        document.getElementById('sessionProfit').innerText = `$${profit.toFixed(2)}`;
-        document.getElementById('sessionProfit').style.color = profit >= 0 ? "#10b981" : "#ef4444";
-
-        if(p > 0) {
-            log(`WIN +$${p}`, "win");
-            processLadder(p);
-        } else {
-            log(`LOSS $${p}`, "loss");
-            resetLadder(); // Loss = Reset
-            triggerSafetyProtocol();
-        }
-        isTrading = false;
-    }
-
+    // --- MANAGER LOGIC (LADDER) ---
     function processLadder(winAmount) {
         const maxSteps = parseInt(document.getElementById('ladderSteps').value);
         ladderCount++;
         
         if(ladderCount >= maxSteps) {
-            log(`🎉 Ladder Complete! Resetting.`, "win");
+            log(`🎉 Ladder Goal Reached! Resetting to Base Stake.`, "log-win");
             resetLadder();
         } else {
+            // Compound: New Stake = Current Stake + Profit
             currentStake = (parseFloat(currentStake) + parseFloat(winAmount)).toFixed(2);
-            log(`🪜 Step ${ladderCount}/${maxSteps}: Compounding to $${currentStake}`, "warn");
+            log(`🪜 Step ${ladderCount}/${maxSteps}: Compounding to $${currentStake}`, "log-info");
             updateLadderUI();
         }
     }
@@ -418,60 +469,188 @@
 
     function updateLadderUI() {
         const max = document.getElementById('ladderSteps').value;
-        document.getElementById('ladderStatus').innerText = `Step ${ladderCount} / ${max}`;
-    }
-
-    function triggerSafetyProtocol() {
-        const pauseTime = parseInt(document.getElementById('lossPause').value);
-        const mult = parseFloat(document.getElementById('martingale').value);
-
-        if(mult > 0) {
-            currentStake = (currentStake * mult).toFixed(2);
-            log(`📈 Martingale: Next Stake $${currentStake}`, "warn");
-        }
-
-        if(pauseTime > 0) {
-            isPaused = true;
-            document.getElementById('pauseOverlay').style.display = 'flex';
-            let timeLeft = pauseTime;
-            const timer = setInterval(() => {
-                timeLeft--;
-                document.getElementById('pauseTimer').innerText = timeLeft + "s";
-                if(timeLeft <= 0) {
-                    clearInterval(timer);
-                    isPaused = false;
-                    document.getElementById('pauseOverlay').style.display = 'none';
-                    log("🟢 Safety Pause Ended.", "info");
-                }
-            }, 1000);
-            log(`🛑 RHYTHM BREAK: Pausing ${pauseTime}s...`, "warn");
-        }
-    }
-
-    function toggleAuto() {
-        isAuto = document.getElementById('togAuto').checked;
-        if(isAuto) {
-            document.getElementById('btnStop').style.display = 'block';
-            resetLadder();
-            log("🤖 Auto-Pilot Started", "info");
-        } else {
-            stopAuto();
-        }
-    }
-
-    function stopAuto() {
-        isAuto = false;
-        document.getElementById('togAuto').checked = false;
-        document.getElementById('btnStop').style.display = 'none';
-        log("🛑 Auto-Pilot Stopped", "warn");
+        document.getElementById('ladderStatus').value = `${ladderCount} / ${max}`;
     }
     
-    function updateUI() { calculateTarget(); }
-
-    function log(m, c) {
-        const d = new Date().toLocaleTimeString();
-        document.getElementById('log').innerHTML = `<div class="${c}">[${d}] ${m}</div>` + document.getElementById('log').innerHTML;
+    function updateBaseStake() {
+        baseStake = parseFloat(document.getElementById('stake').value);
+        // Only update current stake if we are at the start of a ladder
+        if(ladderCount === 0) currentStake = baseStake;
     }
+
+    function resetData() {
+        tickHistory = []; currentTargetDigit = null; manualOverrideDigit = null;
+        displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
+        updateUI(0, parseInt(document.getElementById('tickMinimum').value) || 50);
+    }
+
+    function enforceMinimum() {
+        const min = parseInt(document.getElementById('tickMinimum').value) || 50;
+        if(tickHistory.length > min) tickHistory = tickHistory.slice(-min);
+        updateUI(tickHistory.length, min);
+    }
+
+    function updateStats(price) {
+        const min = parseInt(document.getElementById('tickMinimum').value) || 50;
+        const select = document.getElementById('market');
+        const decimals = parseInt(select.options[select.selectedIndex].getAttribute('data-digits')) || 2;
+        const digit = parseInt(Number(price).toFixed(decimals).slice(-1));
+        tickHistory.push(digit);
+        if(tickHistory.length > min) tickHistory.shift();
+        const box = document.getElementById(`dbox-${digit}`);
+        if(box) { box.classList.add('active-tick'); setTimeout(() => box.classList.remove('active-tick'), 200); }
+        updateUI(tickHistory.length, min);
+    }
+
+    function updateUI(count, min) {
+        document.getElementById('tickCounter').innerText = `${count} / ${min} Ticks`;
+        const counts = {}; tickHistory.forEach(x => counts[x] = (counts[x] || 0) + 1);
+        
+        let stats = [];
+        let maxPerc = -1;
+        let hot = -1;
+        
+        for(let i=0; i<=9; i++) {
+            const p = count === 0 ? 0 : (counts[i] || 0) / count * 100;
+            displayedPercentages[i] += (p - displayedPercentages[i]) * 0.2;
+            document.getElementById(`dp-${i}`).innerText = displayedPercentages[i].toFixed(1) + "%";
+            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'second-cold-digit', 'hot-digit', 'random-digit');
+            stats.push({ digit: i, perc: p });
+            if(p > maxPerc) { maxPerc = p; hot = i; }
+        }
+        if(hot !== -1) document.getElementById(`dbox-${hot}`).classList.add('hot-digit');
+
+        let finalTarget = -1;
+        
+        if (isEntropyMode) {
+            const recentTicks = tickHistory.slice(-20);
+            if(recentTicks.length > 0) {
+                const randomIndex = Math.floor(Math.random() * recentTicks.length);
+                finalTarget = recentTicks[randomIndex];
+                document.getElementById(`dbox-${finalTarget}`).classList.add('random-digit');
+                currentMinPerc = displayedPercentages[finalTarget];
+            }
+        } else {
+            stats.sort((a, b) => a.perc - b.perc);
+            const safeFloor = parseFloat(document.getElementById('safeFloor').value);
+            let candidate = stats[0]; 
+            
+            if(candidate.perc < safeFloor) {
+                candidate = stats[1]; 
+                document.getElementById(`dbox-${stats[0].digit}`).classList.add('cold-digit'); 
+                document.getElementById(`dbox-${stats[1].digit}`).classList.add('second-cold-digit');
+            } else {
+                document.getElementById(`dbox-${candidate.digit}`).classList.add('cold-digit'); 
+            }
+            finalTarget = candidate.digit;
+            currentMinPerc = candidate.perc;
+        }
+
+        if(!manualOverrideDigit) {
+            if(count < min) {
+                updateTargetBoxVisuals(null, false);
+            } else {
+                if(currentTargetDigit !== finalTarget) {
+                    currentTargetDigit = finalTarget;
+                    updateTargetBoxVisuals(finalTarget, false);
+                }
+            }
+        }
+    }
+
+    function updateTargetBoxVisuals(digit, isManual) {
+        const displayEl = document.getElementById('targetDigitDisplay');
+        const statusEl = document.getElementById('targetStatusMsg');
+        const targetBox = document.getElementById('targetBox');
+        
+        if(digit === null) {
+            displayEl.innerText = "⏳"; statusEl.innerText = `Collecting data...`;
+            targetBox.style.borderColor = "var(--accent-orange)";
+            targetBox.style.background = "rgba(59, 130, 246, 0.1)";
+        } else {
+            const newVal = digit.toString();
+            if(displayEl.innerText !== newVal) {
+                displayEl.classList.add('slide-out-up');
+                setTimeout(() => { displayEl.innerText = newVal; displayEl.classList.remove('slide-out-up'); displayEl.classList.add('slide-in-up'); void displayEl.offsetWidth; displayEl.classList.remove('slide-in-up'); }, 300);
+            }
+            const box = document.getElementById(`dbox-${digit}`);
+            const isSafeMode = box.classList.contains('second-cold-digit');
+            const isRandom = box.classList.contains('random-digit');
+            
+            if(isManual) {
+                statusEl.innerText = `Manual: ${digit}`;
+                targetBox.style.borderColor = "var(--accent-orange)";
+            } else if(isRandom) {
+                statusEl.innerText = `🎲 Entropy Target: ${digit}`;
+                targetBox.style.borderColor = "var(--accent-purple)";
+                targetBox.style.background = "rgba(139, 92, 246, 0.1)";
+            } else if(isSafeMode) {
+                statusEl.innerText = `⚠️ Safe Floor: Using 2nd Coldest`;
+                targetBox.style.borderColor = "var(--accent-orange)";
+                targetBox.style.background = "rgba(249, 115, 22, 0.1)";
+            } else {
+                statusEl.innerText = `Auto: ${digit}`;
+                targetBox.style.borderColor = "var(--accent-blue)";
+                targetBox.style.background = "rgba(59, 130, 246, 0.1)";
+            }
+        }
+    }
+
+    async function placeSingleManualTrade() {
+        if(isRunning) return;
+        // Manual override: Reset ladder
+        resetLadder();
+        startRunState();
+        await placeTrade(1, 1);
+        endRunState();
+    }
+
+    async function runCustomSequence(internalCall = false) {
+        if(isRunning && !internalCall) return; 
+        startRunState();
+        const length = parseInt(document.getElementById('seqLength').value) || 1;
+        const delays = Array.from({length}, (_, i) => parseInt(document.getElementById(`seq-delay-${i}`).value));
+        for(let i=0; i<delays.length; i++) {
+            if(shouldStop) break;
+            if(delays[i] > 0) {
+                document.getElementById('countdownOverlay').style.display = 'block';
+                for(let s=delays[i]; s>0; s--) { 
+                    if(shouldStop) break; 
+                    document.getElementById('countdownTimer').innerText = s; 
+                    await new Promise(r => setTimeout(r, 1000)); 
+                }
+                document.getElementById('countdownOverlay').style.display = 'none';
+            }
+            if(shouldStop) break;
+            await placeTrade(i+1, delays.length);
+        }
+        if(!internalCall) endRunState();
+    }
+
+    async function placeTrade(current, total) {
+        const target = manualOverrideDigit !== null ? manualOverrideDigit : currentTargetDigit;
+        if(target === null) return;
+        document.getElementById('progressFill').style.width = (current / total * 100) + "%";
+        ws.send(JSON.stringify({proposal:1, amount:currentStake, barrier:target, basis:'stake', contract_type:'DIGITDIFF', currency:'USD', duration:1, duration_unit:'t', symbol:document.getElementById('market').value}));
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    function startRunState() { isRunning = true; shouldStop = false; document.getElementById('loadingBar').style.display = 'block'; document.getElementById('btnStop').style.display = 'block'; document.getElementById('btnStartCustom').disabled = true; document.getElementById('btnSingle').disabled = true; }
+
+    function endRunState() { 
+        isRunning = false; 
+        document.getElementById('btnStop').style.display = 'none'; 
+        document.getElementById('loadingBar').style.display = 'none'; 
+        document.getElementById('progressFill').style.width = "0%";
+        if(!isAutoPilot) {
+            document.getElementById('btnStartCustom').disabled = false; 
+            document.getElementById('btnSingle').disabled = false; 
+        }
+    }
+
+    function stopTrading() { shouldStop = true; if(isAutoPilot) document.getElementById('autoPilotToggle').click(); endRunState(); log("🛑 Stopped.", "log-loss"); }
+
+    function log(msg, cls) { const area = document.getElementById('logArea'); area.innerHTML = `<div class="${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>` + area.innerHTML; }
 </script>
 </body>
 </html>
