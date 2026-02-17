@@ -3,99 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V27 (The Manager)</title>
+    <title>Smart Trade Bot V27 (Logic + Safety)</title>
     <style>
         :root { --bg: #0f111a; --card: #1c1f2e; --text: #fff; --sub: #8b9bb4; --blue: #3b82f6; --red: #ef4444; --green: #10b981; --orange: #f97316; --purple: #8b5cf6; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 12px; }
+        .container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 12px; }
         .card { background: var(--card); border-radius: 12px; padding: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
         .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; }
-        input, select { background: #0f111a; color: #fff; border: 1px solid #333; padding: 8px; border-radius: 4px; width: 100%; }
-        label { font-size: 0.8em; color: var(--sub); display: block; margin-bottom: 3px; }
+        .balance { font-family: monospace; color: var(--green); font-size: 1.2em; }
         
         /* TOGGLES */
+        .logic-group { display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; }
         .switch { position: relative; width: 40px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2d3748; transition: .3s; border-radius: 20px; }
         .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background: var(--green); }
+        input:checked + .slider { background: var(--blue); }
         input:checked + .slider:before { transform: translateX(20px); }
-
-        .target-box { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--blue); padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 10px; position: relative; }
-        .target-digit { font-size: 3em; font-weight: bold; }
         
-        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-        .box { background: #2d3748; border-radius: 6px; padding: 10px 0; text-align: center; border: 2px solid transparent; transition: 0.1s; position: relative; }
-        .box.safe { border-color: var(--blue); }
-        .box.hot { border-color: var(--red); opacity: 0.6; }
+        /* SAFETY PANEL (NEW) */
+        .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+
+        /* TARGET BOX */
+        .target-box { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--blue); padding: 15px; border-radius: 8px; text-align: center; position: relative; overflow: hidden; }
+        .target-digit { font-size: 3em; font-weight: bold; line-height: 1; transition: 0.3s; }
+        .ghost-badge { position: absolute; top: 5px; right: 5px; background: var(--purple); font-size: 0.6em; padding: 2px 5px; border-radius: 4px; display: none; }
+        
+        /* PAUSE OVERLAY (NEW) */
+        .overlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:50; display:none; flex-direction:column; justify-content:center; align-items:center; border-radius:8px; }
+
+        /* GRID */
+        .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 10px; }
+        .box { background: #2d3748; border-radius: 6px; padding: 8px 0; text-align: center; cursor: pointer; border: 2px solid transparent; position: relative; transition: 0.1s; }
+        .box b { font-size: 1.1em; } .box span { font-size: 0.7em; color: var(--sub); }
+        
+        /* STATES */
+        .box.hot { border-color: var(--red); opacity: 0.5; }
+        .box.safe { border-color: var(--blue); background: rgba(59, 130, 246, 0.15); }
+        .box.random { border-color: var(--purple); background: rgba(139, 92, 246, 0.15); }
         .box.active { background: #fff !important; color: #000; transform: scale(1.1); z-index: 10; }
         
-        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; width: 100%; cursor: pointer; }
+        /* BUTTONS */
+        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; width: 100%; cursor: pointer; margin-top: 5px; }
         .btn-green { background: var(--green); }
-        .btn-stop { background: var(--red); display: none; }
+        .btn-purple { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
+        .btn-red { background: var(--red); display: none; }
+        .btn:disabled { opacity: 0.5; }
+
+        .log { font-family: monospace; font-size: 0.8em; height: 150px; overflow-y: auto; background: #0f111a; padding: 8px; border-radius: 6px; border: 1px solid #333; }
+        .win { color: var(--green); } .loss { color: var(--red); } .info { color: var(--sub); } .warn { color: var(--orange); }
         
-        .log { font-family: monospace; font-size: 0.8em; height: 150px; overflow-y: auto; background: #0f111a; padding: 10px; border-radius: 6px; }
-        .win { color: var(--green); } .loss { color: var(--red); } .info { color: var(--sub); }
-        
-        .ladder-step { font-size: 0.8em; color: var(--orange); font-weight: bold; }
+        select, input { background: #0f111a; color: #fff; border: 1px solid #333; padding: 5px; border-radius: 4px; width: 100%; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="card">
-        <div class="row">
-            <span>🔌 Status: <span id="status" style="color:var(--red)">Offline</span></span>
-            <input type="password" id="token" placeholder="API Token" style="width:50%">
-            <button onclick="connect()" class="btn-green" style="width:30%">Link</button>
-        </div>
-        <div class="row"><span>Balance: <b id="balance" style="color:var(--green)">$0.00</b></span><span>Session: <b id="profit">$0.00</b></span></div>
+        <div class="row"><span>🔌 Status: <span id="status" style="color:var(--red)">Offline</span></span> <span id="balance" class="balance">$0.00</span></div>
+        <div class="row"><input type="password" id="token" placeholder="API Token"><button class="btn-green" style="width:30%" onclick="connect()">Link</button></div>
     </div>
 
-    <div class="card" style="border: 1px solid var(--orange);">
+    <div class="card">
+        <div class="row" style="font-weight:bold; color:var(--blue)">🧠 LOGIC STACK</div>
+        <div class="logic-group">
+            <div class="toggle-row">
+                <span>🎲 <b>Entropy Mode</b> (Random vs Cold)</span>
+                <label class="switch"><input type="checkbox" id="togEntropy" onchange="updateUI()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span>🛡️ <b>Safe Pool</b> (Block Top 3 Hot)</span>
+                <label class="switch"><input type="checkbox" id="togSafe" onchange="updateUI()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span>❄️ <b>Cooldown</b> (Block Last Digit)</span>
+                <label class="switch"><input type="checkbox" id="togCool" onchange="updateUI()"><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span>👻 <b>Ghost Mode</b> (Wait for Virtual Loss)</span>
+                <label class="switch"><input type="checkbox" id="togGhost"><span class="slider" style="background:#4a5568"></span></label>
+            </div>
+        </div>
+    </div>
+
+    <div class="card safety-panel">
         <div class="row" style="margin-bottom:0">
-            <span style="font-weight:bold; color:var(--orange)">🪜 COMPOUND LADDER</span>
-            <span id="ladderStatus" class="ladder-step">Step 0 / 3</span>
+            <span style="font-weight:bold; color:var(--red)">🛡️ RHYTHM BREAKER</span>
         </div>
         <div class="row">
             <div style="flex:1">
-                <label>Ladder Steps:</label>
-                <input type="number" id="ladderSteps" value="3" min="1" max="10">
+                <label>Pause on Loss (Sec):</label>
+                <input type="number" id="lossPause" value="30" style="border-color:var(--orange)">
             </div>
-            <div style="flex:2; font-size:0.75em; color:var(--sub); line-height:1.2; padding-top:15px;">
-                Profits are reinvested for X steps, then resets. Minimize exposure.
+            <div style="flex:1">
+                <label>Martingale (Multiplier):</label>
+                <input type="number" id="martingale" value="11" step="0.5" style="border-color:var(--red)">
             </div>
+        </div>
+        <div style="font-size:0.7em; color:var(--sub); margin-top:5px">
+            *Bot pauses after loss to avoid clusters. Multiplier > 0 increases stake.
         </div>
     </div>
 
     <div class="card">
-        <div class="row">
-            <div style="flex:1"><label>Base Stake</label><input type="number" id="stake" value="0.35"></div>
-            <div style="flex:2"><label>Market</label><select id="market" onchange="switchMarket()"><option value="R_100">Vol 100</option><option value="1HZ100V" selected>Vol 100 (1s)</option></select></div>
-        </div>
-
         <div class="target-box" id="targetBox">
-            <div style="font-size:0.8em">TARGET DIGIT</div>
-            <div class="target-digit" id="dispTarget">?</div>
-            <div style="font-size:0.8em; margin-top:5px" id="dispStatus">Waiting for stats...</div>
-        </div>
+            <div class="overlay" id="pauseOverlay">
+                <div style="font-size:2em">🛑</div>
+                <div style="color:var(--orange); font-weight:bold">SAFETY PAUSE</div>
+                <div id="pauseTimer" style="font-size:1.5em; font-family:monospace">0s</div>
+            </div>
 
+            <span class="ghost-badge" id="ghostBadge">👻 GHOST ACTIVE</span>
+            <div style="font-size:0.8em; margin-bottom:5px">TARGET DIGIT</div>
+            <div class="target-digit" id="dispTarget">?</div>
+            <div style="font-size:0.8em; margin-top:5px" id="dispStatus">Waiting...</div>
+        </div>
         <div class="grid" id="grid"></div>
     </div>
 
     <div class="card">
         <div class="row">
-            <span style="font-weight:bold; color:var(--purple)">🤖 AUTO MANAGER</span>
-            <label class="switch"><input type="checkbox" id="togAuto" onchange="toggleAuto()"><span class="slider"></span></label>
-        </div>
-        <div class="row">
-            <div style="flex:1"><label>Random Delay (s)</label><input type="text" value="2 - 6" disabled style="opacity:0.7"></div>
-            <div style="flex:1"><label>Mode</label><select id="logic"><option value="entropy">Entropy (Random)</option><option value="stats">Stats (Cold)</option></select></div>
+            <div style="flex:1; margin-right:5px"><label>Stake</label><input type="number" id="stake" value="0.35"></div>
+            <div style="flex:2"><label>Market</label><select id="market" onchange="switchMarket()"><option value="JD10">Jump 10</option><option value="R_100">Vol 100</option><option value="1HZ100V" selected>Vol 100 (1s)</option></select></div>
         </div>
         
-        <button id="btnStop" class="btn-stop" onclick="stopAuto()">🛑 STOP AUTO</button>
-        <div class="row" style="margin-top:10px">
-            <button class="btn-green" onclick="manualTrade()">Place 1 Trade</button>
+        <button id="btnAuto" class="btn btn-purple" onclick="toggleAuto()">🤖 START AUTO-PILOT</button>
+        <button id="btnStop" class="btn btn-red" onclick="stopAuto()">🛑 STOP</button>
+        <div style="text-align:center; font-size:0.8em; margin-top:8px; color:var(--sub)">Manual Override Always Active</div>
+        <div class="row" style="margin-top:5px">
+            <button class="btn btn-green" style="width:48%" onclick="manualTrade()">Place 1 Trade</button>
+            <button class="btn btn-green" style="width:48%" onclick="manualSeq()">Run Sequence</button>
         </div>
     </div>
 
@@ -104,11 +142,12 @@
 
 <script>
     const APP_ID = 1089;
-    let ws, history = [], currentTarget = null, isAuto = false, isTrading = false;
-    let profit = 0, baseStake = 0.35, currentStake = 0.35;
-    let ladderCount = 0; // Current step in the ladder
+    let ws, history = [], currentTarget = null, isAuto = false, ghostTrigger = false;
+    let profit = 0;
+    // Safety Variables
+    let isPaused = false, baseStake = 0.35, currentStake = 0.35;
 
-    // Grid
+    // Build Grid
     const grid = document.getElementById('grid');
     for(let i=0; i<=9; i++) grid.innerHTML += `<div class="box" id="b${i}"><b>${i}</b><br><span id="p${i}">0%</span></div>`;
 
@@ -124,8 +163,11 @@
                 document.getElementById('status').style.color = "#10b981";
                 document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('accountInfo').style.display = 'block';
+                
+                // Initialize Stakes
                 baseStake = parseFloat(document.getElementById('stake').value);
                 currentStake = baseStake;
+
                 ws.send(JSON.stringify({balance:1, subscribe:1}));
                 subMarket();
             }
@@ -153,75 +195,103 @@
         history.push(digit);
         if(history.length > 50) history.shift();
 
+        // Visual Pulse
         const b = document.getElementById(`b${digit}`);
         b.classList.add('active'); setTimeout(()=>b.classList.remove('active'), 200);
 
+        // Run Logic
         calculateTarget();
+        
+        // Ghost Mode Logic
+        if(document.getElementById('togGhost').checked) {
+            document.getElementById('ghostBadge').style.display = 'block';
+            if(currentTarget !== null) {
+                if(digit === currentTarget) {
+                    ghostTrigger = true; // Virtual Loss = Real Trigger
+                    log(`👻 Ghost Collision on ${digit}! Armed.`, "warn");
+                    document.getElementById('targetBox').style.borderColor = "#10b981"; // Green light
+                }
+            }
+        } else {
+            document.getElementById('ghostBadge').style.display = 'none';
+            ghostTrigger = true; // Always armed if Ghost is OFF
+            document.getElementById('targetBox').style.borderColor = "#3b82f6";
+        }
 
-        // AUTO PILOT TRIGGER
-        if(isAuto && !isTrading && currentTarget !== null) {
-            startRandomTimer();
+        // Auto Pilot Execution (Checks Pause)
+        if(isAuto && !isPaused && ghostTrigger && currentTarget !== null) {
+            placeTrade();
+            isAuto = false; // One-shot sniper
+            ghostTrigger = false; // Reset trigger
+            updateBtnState();
+            log("🏁 Auto-Pilot Fired & Disengaged", "info");
         }
     }
 
     function calculateTarget() {
         if(history.length < 10) return;
+
+        // 1. Stats
+        const counts = {};
+        history.forEach(x => counts[x] = (counts[x]||0)+1);
         
-        let final = 0;
-        
-        if(document.getElementById('logic').value === 'entropy') {
-            // ENTROPY: Pick random from last 20
-            const pool = history.slice(-20);
-            if(pool.length > 0) final = pool[Math.floor(Math.random() * pool.length)];
-            else final = Math.floor(Math.random() * 10);
-            document.getElementById('dispStatus').innerText = "Entropy Random";
+        let stats = [];
+        for(let i=0; i<=9; i++) {
+            const p = (counts[i]||0)/history.length*100;
+            document.getElementById(`p${i}`).innerText = p.toFixed(0)+"%";
+            document.getElementById(`b${i}`).className = "box"; // Reset
+            stats.push({d:i, p:p});
+        }
+        stats.sort((a,b) => a.p - b.p); // Sort Coldest to Hottest
+
+        // 2. Filter Pool
+        let pool = [0,1,2,3,4,5,6,7,8,9];
+        const hotDigits = [stats[9].d, stats[8].d, stats[7].d]; // Top 3
+        const lastDigit = history[history.length-1];
+
+        // Apply Logic Filters
+        if(document.getElementById('togSafe').checked) {
+            pool = pool.filter(d => !hotDigits.includes(d));
+            hotDigits.forEach(d => document.getElementById(`b${d}`).classList.add('hot'));
+        }
+        if(document.getElementById('togCool').checked) {
+            pool = pool.filter(d => d !== lastDigit);
+        }
+
+        // 3. Selection
+        let final = null;
+        if(pool.length === 0) pool = [stats[0].d]; // Fallback
+
+        if(document.getElementById('togEntropy').checked) {
+            // Random from Safe Pool
+            final = pool[Math.floor(Math.random() * pool.length)];
+            document.getElementById(`b${final}`).classList.add('random');
+            document.getElementById('dispStatus').innerText = "Entropy Target";
         } else {
-            // STATS: Coldest
-            const counts = {}; history.forEach(x => counts[x] = (counts[x]||0)+1);
-            let minP = 100;
-            for(let i=0; i<=9; i++) {
-                const p = (counts[i]||0)/history.length*100;
-                document.getElementById(`p${i}`).innerText = p.toFixed(0)+"%";
-                if(p < minP) { minP = p; final = i; }
+            // Coldest from Safe Pool
+            for(let s of stats) {
+                if(pool.includes(s.d)) {
+                    final = s.d;
+                    break;
+                }
             }
-            document.getElementById('dispStatus').innerText = `Coldest: ${minP.toFixed(0)}%`;
+            document.getElementById(`b${final}`).classList.add('safe');
+            document.getElementById('dispStatus').innerText = "Calculated Target";
         }
 
         currentTarget = final;
         document.getElementById('dispTarget').innerText = final;
-        
-        // Visuals
-        for(let i=0; i<=9; i++) document.getElementById(`b${i}`).className = "box";
-        document.getElementById(`b${final}`).classList.add('safe');
-    }
-
-    let timerRunning = false;
-    function startRandomTimer() {
-        if(timerRunning) return;
-        timerRunning = true;
-        
-        // RANDOM DELAY: 2 to 6 seconds
-        const delay = Math.floor(Math.random() * 4000) + 2000;
-        
-        setTimeout(() => {
-            if(isAuto && !isTrading) placeTrade();
-            timerRunning = false;
-        }, delay);
     }
 
     function manualTrade() {
         if(!currentTarget) return alert("Wait for data");
-        placeTrade(true);
+        placeTrade(true); // True = Manual Override
     }
 
-    function placeTrade(manual = false) {
-        isTrading = true;
-        
-        // If Manual, reset everything
-        if(manual) {
+    function placeTrade(isManual = false) {
+        // If Manual, reset stake to base immediately
+        if(isManual) {
             currentStake = parseFloat(document.getElementById('stake').value);
-            ladderCount = 0;
-            updateLadderUI();
         }
 
         const m = document.getElementById('market').value;
@@ -229,74 +299,85 @@
             proposal: 1, amount: currentStake, barrier: currentTarget, basis: 'stake',
             contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, duration_unit: 't', symbol: m
         }));
-        
-        log(`🚀 Fired on ${currentTarget} ($${currentStake})`, "info");
+        log(`🚀 Fired on ${currentTarget} (Stake: $${currentStake})`, "info");
     }
 
     function handleResult(c) {
         const p = parseFloat(c.profit);
         profit += p;
         document.getElementById('profit').innerText = `$${profit.toFixed(2)}`;
-        document.getElementById('profit').style.color = profit>=0 ? "#10b981" : "#ef4444";
-
+        
         if(p > 0) {
+            // WIN
             log(`WIN +$${p}`, "win");
-            processLadder(p); // Handle compounding
+            // Reset Stake on Win
+            baseStake = parseFloat(document.getElementById('stake').value);
+            currentStake = baseStake; 
         } else {
+            // LOSS
             log(`LOSS $${p}`, "loss");
-            resetLadder(); // Loss resets ladder
-        }
-        
-        isTrading = false;
-    }
-
-    function processLadder(winAmount) {
-        const maxSteps = parseInt(document.getElementById('ladderSteps').value);
-        ladderCount++;
-        
-        if(ladderCount >= maxSteps) {
-            // Ladder Complete! Reset to base.
-            log(`🎉 Ladder Complete! Banked. Resetting.`, "win");
-            resetLadder();
-        } else {
-            // Continue Ladder: Reinvest Stake + Profit
-            // Differs profit is usually Stake * 0.099. 
-            // New Stake = Old Stake + Profit
-            currentStake = (parseFloat(currentStake) + parseFloat(winAmount)).toFixed(2);
-            log(`🪜 Step ${ladderCount}/${maxSteps}: Compounding to $${currentStake}`, "info");
-            updateLadderUI();
+            triggerSafetyProtocol();
         }
     }
 
-    function resetLadder() {
-        ladderCount = 0;
-        baseStake = parseFloat(document.getElementById('stake').value);
-        currentStake = baseStake;
-        updateLadderUI();
-    }
+    function triggerSafetyProtocol() {
+        const pauseTime = parseInt(document.getElementById('lossPause').value);
+        const mult = parseFloat(document.getElementById('martingale').value);
 
-    function updateLadderUI() {
-        const max = document.getElementById('ladderSteps').value;
-        document.getElementById('ladderStatus').innerText = `Step ${ladderCount} / ${max}`;
+        // 1. Martingale Logic
+        if(mult > 0) {
+            currentStake = (currentStake * mult).toFixed(2);
+            log(`📈 Martingale: Increasing stake to $${currentStake}`, "warn");
+        }
+
+        // 2. Rhythm Breaker (Pause) Logic
+        if(pauseTime > 0) {
+            isPaused = true;
+            document.getElementById('pauseOverlay').style.display = 'flex';
+            
+            let timeLeft = pauseTime;
+            const timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('pauseTimer').innerText = timeLeft + "s";
+                if(timeLeft <= 0) {
+                    clearInterval(timer);
+                    isPaused = false;
+                    document.getElementById('pauseOverlay').style.display = 'none';
+                    log("🟢 Safety Pause Ended. Resuming.", "info");
+                }
+            }, 1000);
+            
+            log(`🛑 RHYTHM BREAK: Pausing ${pauseTime}s to avoid cluster...`, "warn");
+        }
     }
 
     function toggleAuto() {
-        isAuto = document.getElementById('togAuto').checked;
-        if(isAuto) {
-            document.getElementById('btnStop').style.display = 'block';
-            resetLadder(); // Always start fresh
-            log("🤖 Auto-Pilot Started (Random Delays Active)", "info");
-        } else {
-            stopAuto();
+        isAuto = true;
+        // When Auto Starts, ensure we are using correct stake
+        if(currentStake < parseFloat(document.getElementById('stake').value)) {
+             currentStake = parseFloat(document.getElementById('stake').value);
         }
+        updateBtnState();
+        log("🤖 Auto-Pilot Armed (Waiting for Trigger)", "info");
     }
 
     function stopAuto() {
         isAuto = false;
-        document.getElementById('togAuto').checked = false;
-        document.getElementById('btnStop').style.display = 'none';
+        updateBtnState();
         log("🛑 Auto-Pilot Stopped", "warn");
     }
+
+    function updateBtnState() {
+        if(isAuto) {
+            document.getElementById('btnAuto').style.display = 'none';
+            document.getElementById('btnStop').style.display = 'block';
+        } else {
+            document.getElementById('btnAuto').style.display = 'block';
+            document.getElementById('btnStop').style.display = 'none';
+        }
+    }
+    
+    function updateUI() { calculateTarget(); } 
 
     function log(m, c) {
         const d = new Date().toLocaleTimeString();
