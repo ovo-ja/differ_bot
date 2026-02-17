@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V37 (Safe Entropy)</title>
+    <title>Smart Trade Bot V38 (Visuals Fixed)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -499,22 +499,22 @@
         const counts = {}; tickHistory.forEach(x => counts[x] = (counts[x] || 0) + 1);
         
         let stats = [];
-        let maxPerc = -1;
-        let hot = -1;
-        
         for(let i=0; i<=9; i++) {
             const p = count === 0 ? 0 : (counts[i] || 0) / count * 100;
             displayedPercentages[i] += (p - displayedPercentages[i]) * 0.2;
             document.getElementById(`dp-${i}`).innerText = displayedPercentages[i].toFixed(1) + "%";
             document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'second-cold-digit', 'hot-digit', 'random-digit');
             stats.push({ digit: i, perc: p });
-            if(p > maxPerc) { maxPerc = p; hot = i; }
         }
-        if(hot !== -1) document.getElementById(`dbox-${hot}`).classList.add('hot-digit');
 
-        // Identify Top 3 Hot Digits
-        stats.sort((a, b) => b.perc - a.perc);
-        const hotDigits = [stats[0].digit, stats[1].digit, stats[2].digit];
+        // Identify Top 3 Hot Digits (VISUAL FIX)
+        const sortedByHot = [...stats].sort((a, b) => b.perc - a.perc);
+        const hotDigits = [sortedByHot[0].digit, sortedByHot[1].digit, sortedByHot[2].digit];
+        
+        // Apply HOT style to top 3
+        hotDigits.forEach(d => {
+            document.getElementById(`dbox-${d}`).classList.add('hot-digit');
+        });
 
         let finalTarget = -1;
         
@@ -525,7 +525,7 @@
             finalTarget = safePool[randomIndex];
             
             document.getElementById(`dbox-${finalTarget}`).classList.add('random-digit');
-            currentMinPerc = displayedPercentages[finalTarget]; // This might be low, but that's okay for random
+            currentMinPerc = displayedPercentages[finalTarget]; 
         } else {
             // STANDARD STATS: Coldest
             stats.sort((a, b) => a.perc - b.perc);
