@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V22 (Entropy Mode)</title>
+    <title>Smart Trade Bot V23 (Custom Entropy)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -34,7 +34,8 @@
         input:checked + .slider:before { transform: translateX(26px); }
 
         /* ENTROPY TOGGLE STYLE */
-        .entropy-wrapper { background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 8px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .entropy-wrapper { background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .entropy-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .entropy-label { font-weight: bold; color: var(--accent-purple); font-size: 0.9em; }
 
         .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1em; margin-bottom: 10px; transition: all 0.5s; }
@@ -52,7 +53,7 @@
         .second-cold-digit { background-color: rgba(249, 115, 22, 0.15); border: 2px solid var(--accent-orange); } 
         .hot-digit { border: 2px solid var(--accent-red); opacity: 0.9; }
         .manual-digit { background-color: rgba(139, 92, 246, 0.2) !important; border-color: var(--accent-purple) !important; }
-        .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); } /* NEW Random Style */
+        .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); } 
 
         .active-tick { background-color: #ffffff !important; color: #000000 !important; transform: scale(1.1); z-index: 10; }
 
@@ -60,7 +61,7 @@
         .cold-digit .badge-cold { display: block; background-color: var(--accent-blue); color: white; }
         .second-cold-digit .badge-safe { display: block; background-color: var(--accent-orange); color: white; }
         .hot-digit .badge-hot { display: block; background-color: var(--accent-red); color: white; }
-        .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; } /* NEW Random Badge */
+        .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; }
 
         .result-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; opacity: 0; pointer-events: none; transition: all 0.5s ease-out; z-index: 20; }
         .show-emoji { opacity: 1; transform: translate(-50%, -80%); }
@@ -161,14 +162,6 @@
                 </label>
             </div>
             
-            <div class="entropy-wrapper">
-                <span class="entropy-label">🎲 Entropy Mode (Last 20)</span>
-                <label class="switch" style="transform: scale(0.8);">
-                    <input type="checkbox" id="entropyToggle" onchange="toggleEntropy()">
-                    <span class="slider" style="background-color: #4b5563;"></span>
-                </label>
-            </div>
-
             <div style="display:flex; gap:10px; align-items:center; margin-bottom:5px;">
                 <div style="flex:1">
                     <label style="color:var(--accent-red);">Max Limit (%):</label>
@@ -178,6 +171,20 @@
                     <label style="color:var(--accent-orange);">Safe Floor (%):</label>
                     <input type="number" id="safeFloor" value="2" style="margin:0; border-color:var(--accent-orange);">
                 </div>
+            </div>
+        </div>
+
+        <div class="entropy-wrapper">
+            <div class="entropy-header">
+                <span class="entropy-label">🎲 Entropy Mode</span>
+                <label class="switch" style="transform: scale(0.8);">
+                    <input type="checkbox" id="entropyToggle" onchange="toggleEntropy()">
+                    <span class="slider" style="background-color: #4b5563;"></span>
+                </label>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <label style="flex:1; margin:0; font-size:0.8em;">Sample Size (Ticks):</label>
+                <input type="number" id="entropySize" value="25" min="5" max="100" style="flex:1; margin:0; border-color:var(--accent-purple);" onchange="toggleEntropy()">
             </div>
         </div>
 
@@ -237,7 +244,7 @@
     let currentMinPerc = 100;
     let manualOverrideDigit = null;
     let isAutoPilot = false; 
-    let isEntropyMode = false; // New State
+    let isEntropyMode = false;
     let sessionProfit = 0;
     let isRunning = false;
     let shouldStop = false;
@@ -293,8 +300,9 @@
 
     function toggleEntropy() {
         isEntropyMode = document.getElementById('entropyToggle').checked;
+        const sampleSize = document.getElementById('entropySize').value;
         if(isEntropyMode) {
-            log("🎲 Entropy Mode ENABLED: Targeting Random from Last 20", "log-info");
+            log(`🎲 Entropy Mode ENABLED (Sample: ${sampleSize})`, "log-info");
         } else {
             log("📊 Entropy Mode DISABLED: Returning to Statistics", "log-info");
         }
@@ -445,11 +453,12 @@
         
         if (isEntropyMode) {
             // --- ENTROPY LOGIC ---
-            // Get last 20 ticks
-            const recentTicks = tickHistory.slice(-20);
+            // User-Defined Sample Size
+            const sampleSize = parseInt(document.getElementById('entropySize').value) || 20;
+            const recentTicks = tickHistory.slice(-sampleSize);
+            
             if(recentTicks.length > 0) {
-                // Pseudo-random selection from history (weighted by recent frequency naturally)
-                // Use a seeded randomness based on time to make it feel "active"
+                // Pseudo-random selection from history
                 const randomIndex = Math.floor(Math.random() * recentTicks.length);
                 finalTarget = recentTicks[randomIndex];
                 
