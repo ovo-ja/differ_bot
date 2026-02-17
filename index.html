@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V21 (Manual Fix)</title>
+    <title>Smart Trade Bot V22 (Entropy Mode)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -33,6 +33,10 @@
         input:checked + .slider { background-color: var(--accent-green); }
         input:checked + .slider:before { transform: translateX(26px); }
 
+        /* ENTROPY TOGGLE STYLE */
+        .entropy-wrapper { background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 8px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .entropy-label { font-weight: bold; color: var(--accent-purple); font-size: 0.9em; }
+
         .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1em; margin-bottom: 10px; transition: all 0.5s; }
         .target-number-container { height: 60px; position: relative; margin: 5px 0; }
         .target-number { font-size: 2.5em; font-weight: bold; display: block; width: 100%; position: absolute; top: 0; left: 0; transition: transform 0.4s, opacity 0.4s; }
@@ -45,13 +49,18 @@
         .digit-box:hover { background-color: #374151; }
         
         .cold-digit { background-color: rgba(59, 130, 246, 0.15); border: 2px solid var(--accent-blue); }
+        .second-cold-digit { background-color: rgba(249, 115, 22, 0.15); border: 2px solid var(--accent-orange); } 
         .hot-digit { border: 2px solid var(--accent-red); opacity: 0.9; }
-        .manual-digit { background-color: rgba(249, 115, 22, 0.2) !important; border-color: var(--accent-orange) !important; }
+        .manual-digit { background-color: rgba(139, 92, 246, 0.2) !important; border-color: var(--accent-purple) !important; }
+        .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); } /* NEW Random Style */
+
         .active-tick { background-color: #ffffff !important; color: #000000 !important; transform: scale(1.1); z-index: 10; }
 
         .badge { font-size: 0.6em; padding: 2px 6px; border-radius: 4px; position: absolute; top: -5px; right: -5px; font-weight: bold; display: none; z-index: 5; }
         .cold-digit .badge-cold { display: block; background-color: var(--accent-blue); color: white; }
+        .second-cold-digit .badge-safe { display: block; background-color: var(--accent-orange); color: white; }
         .hot-digit .badge-hot { display: block; background-color: var(--accent-red); color: white; }
+        .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; } /* NEW Random Badge */
 
         .result-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; opacity: 0; pointer-events: none; transition: all 0.5s ease-out; z-index: 20; }
         .show-emoji { opacity: 1; transform: translate(-50%, -80%); }
@@ -93,7 +102,7 @@
         </div>
         <div id="accountInfo" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span>Balance:</span>
+                <span style="color:#8b9bb4;">Balance:</span>
                 <span id="balanceDisplay" class="balance-box">$0.00</span>
             </div>
             <div style="font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">
@@ -151,25 +160,37 @@
                     <span class="slider"></span>
                 </label>
             </div>
-            <div style="display:flex; gap:10px; align-items:center; margin-bottom:5px;">
-                <label style="flex:1; margin:0;">Sequence Mode:</label>
-                <select id="autoPilotMode" style="flex:2; margin:0;">
-                    <option value="single">Place Single Trade</option>
-                    <option value="sequence">Run Custom Sequence</option>
-                </select>
+            
+            <div class="entropy-wrapper">
+                <span class="entropy-label">🎲 Entropy Mode (Last 20)</span>
+                <label class="switch" style="transform: scale(0.8);">
+                    <input type="checkbox" id="entropyToggle" onchange="toggleEntropy()">
+                    <span class="slider" style="background-color: #4b5563;"></span>
+                </label>
             </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <label style="flex:1; margin:0; color:var(--accent-red);">Trigger Below:</label>
-                <input type="number" id="threshold" value="8" style="flex:2; margin:0; border-color:var(--accent-red);">
-                <span style="font-size:0.8em; color:#8b9bb4;">%</span>
+
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:5px;">
+                <div style="flex:1">
+                    <label style="color:var(--accent-red);">Max Limit (%):</label>
+                    <input type="number" id="threshold" value="9" style="margin:0; border-color:var(--accent-red);">
+                </div>
+                <div style="flex:1">
+                    <label style="color:var(--accent-orange);">Safe Floor (%):</label>
+                    <input type="number" id="safeFloor" value="2" style="margin:0; border-color:var(--accent-orange);">
+                </div>
             </div>
         </div>
 
         <div id="targetBox" class="target-display target-waiting">
-            <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:5px;"><span>TARGET</span><span id="tickCounter">0 / 50</span></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em;">
+                <span style="font-weight: bold;">TARGET DIGIT</span>
+                <span id="tickCounter" style="background: rgba(0,0,0,0.3); padding: 3px 8px; border-radius: 12px;">0 / 50 Ticks</span>
+            </div>
+            
             <div class="target-number-container">
                 <span id="targetDigitDisplay" class="target-number slide-in">⏳</span>
             </div>
+            
             <span id="targetStatusMsg" style="font-size: 0.8em;">Collecting data...</span>
             <div id="countdownOverlay">⏳ NEXT TRADE IN: <span id="countdownTimer">0</span>s</div>
         </div>
@@ -180,19 +201,30 @@
 
     <div class="card">
         <div class="header">🛠️ Sequence Builder</div>
+        
         <div class="sequence-controls">
-            <div style="flex:1;"><label style="color:var(--accent-purple);">Total Trades:</label><input type="number" id="seqLength" value="5" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);"></div>
+            <div style="flex:1;">
+                <label style="color:var(--accent-purple);">Total Trades:</label>
+                <input type="number" id="seqLength" value="5" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
+            </div>
+            <div style="flex:2; font-size:0.8em; color:var(--text-secondary); line-height:1.2;">
+                Auto-Pilot will use these settings for the sequence.
+            </div>
         </div>
+
         <div id="sequenceContainer" class="sequence-grid"></div>
+
         <button id="btnStartCustom" class="btn btn-purple" onclick="runCustomSequence()">⚡ Run Sequence</button>
         <button id="btnSingle" class="btn btn-green" onclick="placeSingleManualTrade()">✅ Place Single Trade</button>
         <button id="btnStop" class="btn btn-stop" onclick="stopTrading()">🛑 STOP TRADING</button>
+        
         <div id="loadingBar" style="height: 4px; background: #2d3748; margin-top: 5px; border-radius: 2px; overflow: hidden; display: none;">
             <div id="progressFill" style="height: 100%; width: 0%; background: var(--accent-purple); transition: width 0.3s;"></div>
         </div>
     </div>
 
     <div class="card">
+        <div class="header">📜 Activity Log</div>
         <div class="log-area" id="logArea"></div>
     </div>
 </div>
@@ -205,20 +237,24 @@
     let currentMinPerc = 100;
     let manualOverrideDigit = null;
     let isAutoPilot = false; 
+    let isEntropyMode = false; // New State
     let sessionProfit = 0;
     let isRunning = false;
     let shouldStop = false;
     let displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
     let isConnected = false;
 
+    // Init
     window.onload = function() { updateSequenceUI(); };
 
     const grid = document.getElementById('digitGrid');
     for(let i=0; i<=9; i++) {
         grid.innerHTML += `
             <div class="digit-box" id="dbox-${i}" onclick="selectManualDigit(${i})">
-                <span class="badge badge-cold">❄️</span>
-                <span class="badge badge-hot">🔥</span>
+                <span class="badge badge-cold">COLD</span>
+                <span class="badge badge-safe">SAFE</span>
+                <span class="badge badge-hot">HOT</span>
+                <span class="badge badge-rnd">🎲 RND</span>
                 <span id="emoji-${i}" class="result-emoji"></span>
                 <b>${i}</b><br><span id="dp-${i}" style="font-size:0.75em; color: var(--text-secondary);">0.0%</span>
             </div>`;
@@ -255,6 +291,17 @@
         }, 300);
     }
 
+    function toggleEntropy() {
+        isEntropyMode = document.getElementById('entropyToggle').checked;
+        if(isEntropyMode) {
+            log("🎲 Entropy Mode ENABLED: Targeting Random from Last 20", "log-info");
+        } else {
+            log("📊 Entropy Mode DISABLED: Returning to Statistics", "log-info");
+        }
+        // Force update to refresh target logic
+        if(tickHistory.length > 0) updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value));
+    }
+
     function toggleAutoPilot() {
         isAutoPilot = document.getElementById('autoPilotToggle').checked;
         const statusText = document.getElementById('controlModeText');
@@ -281,14 +328,15 @@
         shouldStop = false;
         while(isAutoPilot && !shouldStop) {
             if(currentTargetDigit === null) { await new Promise(r => setTimeout(r, 1000)); continue; }
-            const threshold = parseFloat(document.getElementById('threshold').value);
-            if(currentMinPerc <= threshold) {
-                log(`🎯 TRIGGERED: Coldest (${currentTargetDigit}) is ${currentMinPerc.toFixed(1)}%`, "log-win");
-                const mode = document.getElementById('autoPilotMode').value;
-                if(mode === 'single') { await placeTrade(1, 1); } else { await runCustomSequence(true); }
-                log("🏁 Sequence Complete.", "log-info");
-                document.getElementById('autoPilotToggle').checked = false;
-                toggleAutoPilot();
+            
+            const maxThreshold = parseFloat(document.getElementById('threshold').value);
+            
+            // Logic: In Entropy Mode, we generally just fire because it's random
+            // But if user wants safety, we only fire if Random Digit's % is <= Threshold
+            if(currentMinPerc <= maxThreshold) {
+                log(`🎯 TRIGGERED: Target (${currentTargetDigit}) is ${currentMinPerc.toFixed(1)}%`, "log-win");
+                await runCustomSequence(true);
+                document.getElementById('autoPilotToggle').click(); 
                 break;
             }
             await new Promise(r => setTimeout(r, 2000));
@@ -373,36 +421,111 @@
     function updateUI(count, min) {
         document.getElementById('tickCounter').innerText = `${count} / ${min} Ticks`;
         const counts = {}; tickHistory.forEach(x => counts[x] = (counts[x] || 0) + 1);
-        let minPerc = 100, cold = -1;
+        
+        // 1. Calc Stats
+        const stats = [];
+        let maxPerc = -1;
+        let hot = -1;
+        
         for(let i=0; i<=9; i++) {
-            const targetPerc = count === 0 ? 0 : (counts[i] || 0) / count * 100;
-            displayedPercentages[i] += (targetPerc - displayedPercentages[i]) * 0.2;
+            const p = count === 0 ? 0 : (counts[i] || 0) / count * 100;
+            displayedPercentages[i] += (p - displayedPercentages[i]) * 0.2;
             document.getElementById(`dp-${i}`).innerText = displayedPercentages[i].toFixed(1) + "%";
-            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'hot-digit');
-            if(targetPerc < minPerc && count > 0) { minPerc = targetPerc; cold = i; }
+            
+            // Clean Styles
+            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'second-cold-digit', 'hot-digit', 'random-digit');
+            
+            stats.push({ digit: i, perc: p });
+            if(p > maxPerc) { maxPerc = p; hot = i; }
         }
-        currentMinPerc = minPerc;
-        if(cold !== -1) document.getElementById(`dbox-${cold}`).classList.add('cold-digit');
+        if(hot !== -1) document.getElementById(`dbox-${hot}`).classList.add('hot-digit');
+
+        // 2. DETERMINE TARGET
+        let finalTarget = -1;
+        
+        if (isEntropyMode) {
+            // --- ENTROPY LOGIC ---
+            // Get last 20 ticks
+            const recentTicks = tickHistory.slice(-20);
+            if(recentTicks.length > 0) {
+                // Pseudo-random selection from history (weighted by recent frequency naturally)
+                // Use a seeded randomness based on time to make it feel "active"
+                const randomIndex = Math.floor(Math.random() * recentTicks.length);
+                finalTarget = recentTicks[randomIndex];
+                
+                document.getElementById(`dbox-${finalTarget}`).classList.add('random-digit');
+                
+                // Update percentage for Auto-Pilot logic
+                currentMinPerc = displayedPercentages[finalTarget]; // Use the real % of this random digit
+            }
+        } else {
+            // --- STANDARD LOGIC ---
+            stats.sort((a, b) => a.perc - b.perc);
+            const safeFloor = parseFloat(document.getElementById('safeFloor').value);
+            
+            let candidate = stats[0]; // Coldest
+            
+            if(candidate.perc < safeFloor) {
+                candidate = stats[1]; // Switch to 2nd coldest
+                document.getElementById(`dbox-${stats[0].digit}`).classList.add('cold-digit'); // Blue (Danger)
+                document.getElementById(`dbox-${stats[1].digit}`).classList.add('second-cold-digit'); // Orange (Safe)
+            } else {
+                document.getElementById(`dbox-${candidate.digit}`).classList.add('cold-digit'); // Blue (Safe)
+            }
+            finalTarget = candidate.digit;
+            currentMinPerc = candidate.perc;
+        }
+
+        // 3. UI Update
         if(!manualOverrideDigit) {
-            if(count < min) updateTargetBoxVisuals(null, false);
-            else if(currentTargetDigit !== cold) { currentTargetDigit = cold; updateTargetBoxVisuals(cold, false); }
+            if(count < min) {
+                updateTargetBoxVisuals(null, false);
+            } else {
+                if(currentTargetDigit !== finalTarget) {
+                    currentTargetDigit = finalTarget;
+                    updateTargetBoxVisuals(finalTarget, false);
+                }
+            }
         }
     }
 
     function updateTargetBoxVisuals(digit, isManual) {
         const displayEl = document.getElementById('targetDigitDisplay');
         const statusEl = document.getElementById('targetStatusMsg');
+        const targetBox = document.getElementById('targetBox');
+        
         if(digit === null) {
             displayEl.innerText = "⏳"; statusEl.innerText = `Collecting data...`;
-            document.getElementById('targetBox').style.borderColor = "var(--accent-orange)";
+            targetBox.style.borderColor = "var(--accent-orange)";
+            targetBox.style.background = "rgba(59, 130, 246, 0.1)";
         } else {
             const newVal = digit.toString();
             if(displayEl.innerText !== newVal) {
                 displayEl.classList.add('slide-out-up');
                 setTimeout(() => { displayEl.innerText = newVal; displayEl.classList.remove('slide-out-up'); displayEl.classList.add('slide-in-up'); void displayEl.offsetWidth; displayEl.classList.remove('slide-in-up'); }, 300);
             }
-            statusEl.innerText = isManual ? `Manual: ${digit}` : `Auto: ${digit}`;
-            document.getElementById('targetBox').style.borderColor = isManual ? "var(--accent-orange)" : "var(--accent-blue)";
+            
+            // Check Modes
+            const box = document.getElementById(`dbox-${digit}`);
+            const isSafeMode = box.classList.contains('second-cold-digit');
+            const isRandom = box.classList.contains('random-digit');
+            
+            if(isManual) {
+                statusEl.innerText = `Manual: ${digit}`;
+                targetBox.style.borderColor = "var(--accent-orange)";
+            } else if(isRandom) {
+                statusEl.innerText = `🎲 Entropy Target: ${digit}`;
+                targetBox.style.borderColor = "var(--accent-purple)";
+                targetBox.style.background = "rgba(139, 92, 246, 0.1)";
+            } else if(isSafeMode) {
+                statusEl.innerText = `⚠️ Safe Floor: Using 2nd Coldest`;
+                targetBox.style.borderColor = "var(--accent-orange)";
+                targetBox.style.background = "rgba(249, 115, 22, 0.1)";
+            } else {
+                statusEl.innerText = `Auto: ${digit}`;
+                targetBox.style.borderColor = "var(--accent-blue)";
+                targetBox.style.background = "rgba(59, 130, 246, 0.1)";
+            }
         }
     }
 
