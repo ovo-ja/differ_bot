@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V45 (Progress Bar)</title>
+    <title>Smart Trade Bot V46 (Clean)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -34,7 +34,7 @@
         input:checked + .slider:before { transform: translateX(26px); }
 
         .entropy-wrapper { background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 8px; border-radius: 8px; margin-bottom: 10px; }
-        .entropy-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .entropy-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; }
         .entropy-label { font-weight: bold; color: var(--accent-purple); font-size: 0.9em; }
 
         .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1em; margin-bottom: 10px; transition: all 0.5s; }
@@ -50,7 +50,6 @@
         
         .cold-digit { background-color: rgba(59, 130, 246, 0.15); border: 2px solid var(--accent-blue); }
         .second-cold-digit { background-color: rgba(249, 115, 22, 0.15); border: 2px solid var(--accent-orange); } 
-        .hot-digit { border: 2px solid var(--accent-red); opacity: 0.9; }
         .manual-digit { background-color: rgba(139, 92, 246, 0.2) !important; border-color: var(--accent-purple) !important; }
         .random-digit { background-color: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-purple); box-shadow: 0 0 10px rgba(139, 92, 246, 0.3); }
 
@@ -59,7 +58,6 @@
         .badge { font-size: 0.6em; padding: 2px 6px; border-radius: 4px; position: absolute; top: -5px; right: -5px; font-weight: bold; display: none; z-index: 5; }
         .cold-digit .badge-cold { display: block; background-color: var(--accent-blue); color: white; }
         .second-cold-digit .badge-safe { display: block; background-color: var(--accent-orange); color: white; }
-        .hot-digit .badge-hot { display: block; background-color: var(--accent-red); color: white; }
         .random-digit .badge-rnd { display: block; background-color: var(--accent-purple); color: white; }
 
         .result-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; opacity: 0; pointer-events: none; transition: all 0.5s ease-out; z-index: 20; }
@@ -89,7 +87,6 @@
 
         #countdownOverlay { font-size: 0.9em; color: var(--accent-orange); font-weight: bold; margin-top: 5px; display: none; }
         
-        .manager-panel { background: rgba(249, 115, 22, 0.1); border: 1px solid var(--accent-orange); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
         .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
 
         /* PROGRESS BAR STYLES */
@@ -117,20 +114,6 @@
             </div>
             <div style="font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">
                 Session Profit: <span id="sessionProfit">$0.00</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="card manager-panel">
-        <div style="font-weight:bold; color:var(--accent-orange); margin-bottom:5px;">🪜 PROFIT LADDER</div>
-        <div style="display: flex; gap: 10px;">
-            <div style="flex:1">
-                <label>Ladder Steps (Wins):</label>
-                <input type="number" id="ladderSteps" value="3" min="1" max="10">
-            </div>
-            <div style="flex:1">
-                <label>Current Step:</label>
-                <input type="text" id="ladderStatus" value="0 / 3" disabled style="text-align:center;">
             </div>
         </div>
     </div>
@@ -188,16 +171,9 @@
             </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div style="flex:1; margin-right:10px;">
+            <div style="flex:1;">
                 <label>Tick Analysis Minimum</label>
                 <input type="number" id="tickMinimum" value="50" min="10" onchange="enforceMinimum()">
-            </div>
-            <div style="flex:1;">
-                <label>Show Hot Digits</label>
-                <label class="switch" style="transform: scale(0.9);">
-                    <input type="checkbox" id="visualHotToggle" checked onchange="updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value))">
-                    <span class="slider" style="background-color: #4b5563;"></span>
-                </label>
             </div>
         </div>
     </div>
@@ -214,16 +190,9 @@
             
             <div class="entropy-wrapper">
                 <div class="entropy-row">
-                    <span class="entropy-label">🎲 Entropy Mode</span>
+                    <span class="entropy-label">🎲 Entropy Mode (Random)</span>
                     <label class="switch" style="transform: scale(0.8);">
                         <input type="checkbox" id="entropyToggle" onchange="toggleEntropy()">
-                        <span class="slider" style="background-color: #4b5563;"></span>
-                    </label>
-                </div>
-                <div class="entropy-row" style="margin-top:5px; border-top:1px solid #333; padding-top:5px;">
-                    <span class="entropy-label" style="font-size:0.8em; color:var(--accent-orange);">🛡️ Avoid Top 3 Hot Digits</span>
-                    <label class="switch" style="transform: scale(0.8);">
-                        <input type="checkbox" id="avoidHotToggle" checked onchange="updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value))">
                         <span class="slider" style="background-color: #4b5563;"></span>
                     </label>
                 </div>
@@ -309,7 +278,6 @@
     // VARIABLES
     let baseStake = 0.35;
     let currentStake = 0.35;
-    let ladderCount = 0;
     let martingaleStep = 0;
     let tradeResolver = null;
     let isPaused = false;
@@ -323,7 +291,6 @@
             <div class="digit-box" id="dbox-${i}" onclick="selectManualDigit(${i})">
                 <span class="badge badge-cold">COLD</span>
                 <span class="badge badge-safe">SAFE</span>
-                <span class="badge badge-hot">HOT</span>
                 <span class="badge badge-rnd">🎲 RND</span>
                 <span id="emoji-${i}" class="result-emoji"></span>
                 <b>${i}</b><br><span id="dp-${i}" style="font-size:0.75em; color: var(--text-secondary);">0.0%</span>
@@ -372,9 +339,10 @@
 
     function toggleEntropy() {
         isEntropyMode = document.getElementById('entropyToggle').checked;
-        const avoidHot = document.getElementById('avoidHotToggle').checked;
         if(isEntropyMode) {
-            log(`🎲 Entropy Mode: ${avoidHot ? "SAFE" : "CHAOS"}`, "log-info");
+            log(`🎲 Entropy Mode: ON (Pure Random)`, "log-info");
+        } else {
+            log("📊 Entropy Mode: OFF (Stats/Coldest)", "log-info");
         }
         if(tickHistory.length > 0) updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value));
     }
@@ -390,7 +358,7 @@
             statusText.innerText = "🤖 AUTO MODE";
             statusText.style.color = "var(--accent-green)";
             
-            resetLadder();
+            resetStake();
             log(`🤖 Auto-Pilot ARMED.`, "log-win");
             startAutoPilotWatch();
         } else {
@@ -475,7 +443,7 @@
 
                 if(profit > 0) {
                     log(`WIN ($${profit.toFixed(2)})`, "log-win");
-                    processLadder(profit);
+                    resetStake();
                 } else {
                     log(`LOSS ($${Math.abs(profit).toFixed(2)})`, "log-loss");
                     triggerSafetyProtocol();
@@ -486,46 +454,18 @@
         };
     }
 
-    function processLadder(winAmount) {
-        if(martingaleStep > 0) {
-            log(`✅ RECOVERY SUCCESSFUL! Resetting.`, "log-win");
-            resetLadder();
-            return;
-        }
-        const maxSteps = parseInt(document.getElementById('ladderSteps').value);
-        ladderCount++;
-        if(ladderCount >= maxSteps) {
-            log(`🎉 Ladder Goal Reached! Resetting.`, "log-win");
-            resetLadder();
-        } else {
-            currentStake = (parseFloat(currentStake) + parseFloat(winAmount)).toFixed(2);
-            log(`🪜 Step ${ladderCount}/${maxSteps}: Compounding to $${currentStake}`, "log-info");
-            updateLadderUI();
-        }
-    }
-
-    function resetLadder() {
-        ladderCount = 0;
+    function resetStake() {
         martingaleStep = 0;
         baseStake = parseFloat(document.getElementById('stake').value);
         currentStake = baseStake;
-        updateLadderUI();
-    }
-
-    function updateLadderUI() {
-        const max = document.getElementById('ladderSteps').value;
-        document.getElementById('ladderStatus').value = `${ladderCount} / ${max}`;
     }
     
     function updateBaseStake() {
         baseStake = parseFloat(document.getElementById('stake').value);
-        if(ladderCount === 0 && martingaleStep === 0) currentStake = baseStake;
+        if(martingaleStep === 0) currentStake = baseStake;
     }
 
     function triggerSafetyProtocol() {
-        ladderCount = 0;
-        updateLadderUI();
-        
         const pauseTime = parseInt(document.getElementById('lossPause').value);
         const mult = parseFloat(document.getElementById('martingale').value);
         const limit = parseInt(document.getElementById('martingaleLimit').value);
@@ -536,7 +476,7 @@
             log(`🛡️ RECOVERY MODE (Try ${martingaleStep}/${limit}) - Stake: $${currentStake}`, "log-warn");
         } else {
             log(`❌ Recovery Failed or Limit Reached. Resetting.`, "log-loss");
-            resetLadder();
+            resetStake();
         }
 
         if(pauseTime > 0) {
@@ -591,32 +531,21 @@
             const p = count === 0 ? 0 : (counts[i] || 0) / count * 100;
             displayedPercentages[i] += (p - displayedPercentages[i]) * 0.2;
             document.getElementById(`dp-${i}`).innerText = displayedPercentages[i].toFixed(1) + "%";
-            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'second-cold-digit', 'hot-digit', 'random-digit');
+            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'second-cold-digit', 'random-digit');
             stats.push({ digit: i, perc: p });
-        }
-
-        const showHot = document.getElementById('visualHotToggle').checked;
-        const sortedByHot = [...stats].sort((a, b) => b.perc - a.perc);
-        const hotDigits = [sortedByHot[0].digit, sortedByHot[1].digit, sortedByHot[2].digit];
-        
-        if(showHot) {
-            hotDigits.forEach(d => document.getElementById(`dbox-${d}`).classList.add('hot-digit'));
         }
 
         let finalTarget = -1;
         
         if (isEntropyMode) {
-            const avoidHot = document.getElementById('avoidHotToggle').checked;
-            let pool = [0,1,2,3,4,5,6,7,8,9];
-            if (avoidHot) {
-                pool = pool.filter(d => !hotDigits.includes(d));
-            }
-            const randomIndex = Math.floor(Math.random() * pool.length);
-            finalTarget = pool[randomIndex];
+            // Pure Random 0-9
+            const randomIndex = Math.floor(Math.random() * 10);
+            finalTarget = randomIndex;
             
             document.getElementById(`dbox-${finalTarget}`).classList.add('random-digit');
             currentMinPerc = displayedPercentages[finalTarget]; 
         } else {
+            // Stats: Coldest
             stats.sort((a, b) => a.perc - b.perc);
             const safeFloor = parseFloat(document.getElementById('safeFloor').value);
             let candidate = stats[0]; 
@@ -684,7 +613,7 @@
 
     async function placeSingleManualTrade() {
         if(isRunning) return;
-        resetLadder();
+        resetStake();
         startRunState();
         await new Promise(resolve => {
             tradeResolver = resolve;
@@ -693,7 +622,6 @@
         endRunState();
     }
 
-    // --- PROGRESS BAR UPDATE ---
     function updateProgress(current, total) {
         const fill = document.getElementById('progressFill');
         const text = document.getElementById('progressText');
@@ -718,7 +646,6 @@
         for(let i=0; i<length; i++) {
             if(shouldStop && martingaleStep === 0) break;
             
-            // UPDATE PROGRESS
             updateProgress(i + 1, length);
             
             const delayVal = document.getElementById(`seq-delay-${i}`) ? document.getElementById(`seq-delay-${i}`).value : 'random';
@@ -751,11 +678,10 @@
             });
         }
 
-        // OVERTIME RECOVERY
         const maxRecovery = parseInt(document.getElementById('martingaleLimit').value);
         while (martingaleStep > 0 && martingaleStep <= maxRecovery && !shouldStop) {
             log(`⚠️ Sequence ended on LOSS. Entering Relentless Recovery...`, "log-warn");
-            updateProgress(length, length); // Keep full bar but red
+            updateProgress(length, length);
             while(isPaused) await new Promise(r => setTimeout(r, 1000));
             await new Promise(resolve => {
                 tradeResolver = resolve;
@@ -792,7 +718,17 @@
         }
     }
 
-    function stopTrading() { shouldStop = true; if(isAutoPilot) document.getElementById('autoPilotToggle').click(); log("🛑 Stop Command Received.", "log-warn"); }
+    function stopTrading() { 
+        shouldStop = true; 
+        isPaused = false;
+        
+        if(isAutoPilot) document.getElementById('autoPilotToggle').click(); 
+        
+        log("🛑 STOP TRADING. Unlocking...", "log-warn");
+        
+        // Force state reset immediately
+        endRunState();
+    }
 
     function log(msg, cls) { const area = document.getElementById('logArea'); area.innerHTML = `<div class="${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>` + area.innerHTML; }
 </script>
