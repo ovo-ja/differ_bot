@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V40 (Logic Control)</title>
+    <title>Smart Trade Bot V41 (One-Shot Recovery)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -33,7 +33,6 @@
         input:checked + .slider { background-color: var(--accent-green); }
         input:checked + .slider:before { transform: translateX(26px); }
 
-        /* ENTROPY TOGGLE STYLE */
         .entropy-wrapper { background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 8px; border-radius: 8px; margin-bottom: 10px; }
         .entropy-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .entropy-label { font-weight: bold; color: var(--accent-purple); font-size: 0.9em; }
@@ -88,7 +87,9 @@
 
         #countdownOverlay { font-size: 0.9em; color: var(--accent-orange); font-weight: bold; margin-top: 5px; display: none; }
         
+        /* MANAGER & SAFETY PANEL */
         .manager-panel { background: rgba(249, 115, 22, 0.1); border: 1px solid var(--accent-orange); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -115,10 +116,10 @@
     </div>
 
     <div class="card manager-panel">
-        <div style="font-weight:bold; color:var(--accent-orange); margin-bottom:5px;">🪜 MANAGER MODE</div>
+        <div style="font-weight:bold; color:var(--accent-orange); margin-bottom:5px;">🪜 PROFIT LADDER</div>
         <div style="display: flex; gap: 10px;">
             <div style="flex:1">
-                <label>Ladder Steps:</label>
+                <label>Ladder Steps (Wins):</label>
                 <input type="number" id="ladderSteps" value="3" min="1" max="10">
             </div>
             <div style="flex:1">
@@ -126,9 +127,29 @@
                 <input type="text" id="ladderStatus" value="0 / 3" disabled style="text-align:center;">
             </div>
         </div>
+        <div style="font-size:0.7em; color:var(--text-secondary); margin-top:5px;">
+            Reinvests wins. Resets on loss or goal.
+        </div>
+    </div>
+
+    <div class="card safety-panel">
+        <div style="font-weight:bold; color:var(--accent-red); margin-bottom:5px;">🛡️ RECOVERY & SAFETY</div>
+        <div style="display: flex; gap: 10px;">
+            <div style="flex:1">
+                <label>Recovery Multiplier:</label>
+                <input type="number" id="martingale" value="11" step="0.5" style="border-color:var(--accent-red)">
+            </div>
+            <div style="flex:1">
+                <label>Max Recovery Tries:</label>
+                <input type="number" id="martingaleLimit" value="1" min="0" max="5">
+            </div>
+        </div>
+        <div style="margin-top:5px;">
+            <label>Pause on Loss (Seconds):</label>
+            <input type="number" id="lossPause" value="30" style="border-color:var(--accent-orange)">
+        </div>
         <div style="font-size:0.7em; color:var(--text-secondary); margin-top:5px; line-height:1.2;">
-            <b>Compounding:</b> Reinvests profits for X steps.<br>
-            <b>Random Delay:</b> Waits 2-6s between auto-trades.
+            <b>One-Shot:</b> With Limit=1, bot tries to recover ONCE. If that fails, it resets to base stake.
         </div>
     </div>
 
@@ -244,7 +265,7 @@
         <div class="sequence-controls">
             <div style="flex:1;">
                 <label style="color:var(--accent-purple);">Total Trades:</label>
-                <input type="number" id="seqLength" value="5" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
+                <input type="number" id="seqLength" value="3" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
             </div>
             <div style="flex:2; font-size:0.8em; color:var(--text-secondary); line-height:1.2;">
                 Auto-Pilot will use these settings for the sequence.
@@ -283,10 +304,11 @@
     let displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
     let isConnected = false;
     
-    // MANAGER VARIABLES
+    // MANAGER & SAFETY VARIABLES
     let baseStake = 0.35;
     let currentStake = 0.35;
     let ladderCount = 0;
+    let martingaleStep = 0; // Tracks recovery attempts
 
     // Init
     window.onload = function() { updateSequenceUI(); };
@@ -310,7 +332,7 @@
         const existingValues = Array.from(container.querySelectorAll('select')).map(s => s.value);
         container.innerHTML = ''; 
         for(let i=0; i<length; i++) {
-            let def = (i < existingValues.length) ? existingValues[i] : (i === 0 ? "60" : "0");
+            let def = (i < existingValues.length) ? existingValues[i] : "random";
             container.insertAdjacentHTML('beforeend', `
                 <div class="seq-step">
                     <label>Trade ${i+1}</label>
@@ -339,13 +361,8 @@
     function toggleEntropy() {
         isEntropyMode = document.getElementById('entropyToggle').checked;
         const avoidHot = document.getElementById('avoidHotToggle').checked;
-        
         if(isEntropyMode) {
-            if(avoidHot) {
-                log("🎲 Entropy Mode: SAFE (Avoiding Hot)", "log-info");
-            } else {
-                log("🎲 Entropy Mode: PURE CHAOS (Any Digit)", "log-warn");
-            }
+            log(`🎲 Entropy Mode: ${avoidHot ? "SAFE (No Hot)" : "CHAOS (Any)"}`, "log-info");
         } else {
             log("📊 Entropy Mode DISABLED: Returning to Statistics", "log-info");
         }
@@ -458,19 +475,26 @@
                     processLadder(profit);
                 } else {
                     log(`LOSS ($${Math.abs(profit).toFixed(2)})`, "log-loss");
-                    resetLadder();
+                    triggerSafetyProtocol();
                 }
             }
         };
     }
 
-    // --- MANAGER LOGIC (LADDER) ---
+    // --- MANAGER & SAFETY LOGIC ---
     function processLadder(winAmount) {
+        // If we won a recovery trade, reset everything
+        if(martingaleStep > 0) {
+            log(`✅ RECOVERY SUCCESSFUL! Resetting.`, "log-win");
+            resetLadder();
+            return;
+        }
+
         const maxSteps = parseInt(document.getElementById('ladderSteps').value);
         ladderCount++;
         
         if(ladderCount >= maxSteps) {
-            log(`🎉 Ladder Goal Reached! Resetting to Base Stake.`, "log-win");
+            log(`🎉 Ladder Goal Reached! Resetting.`, "log-win");
             resetLadder();
         } else {
             currentStake = (parseFloat(currentStake) + parseFloat(winAmount)).toFixed(2);
@@ -481,6 +505,7 @@
 
     function resetLadder() {
         ladderCount = 0;
+        martingaleStep = 0; // Reset recovery count
         baseStake = parseFloat(document.getElementById('stake').value);
         currentStake = baseStake;
         updateLadderUI();
@@ -493,7 +518,45 @@
     
     function updateBaseStake() {
         baseStake = parseFloat(document.getElementById('stake').value);
-        if(ladderCount === 0) currentStake = baseStake;
+        if(ladderCount === 0 && martingaleStep === 0) currentStake = baseStake;
+    }
+
+    function triggerSafetyProtocol() {
+        // Stop Ladder Logic immediately on loss
+        ladderCount = 0;
+        updateLadderUI();
+
+        const pauseTime = parseInt(document.getElementById('lossPause').value);
+        const mult = parseFloat(document.getElementById('martingale').value);
+        const limit = parseInt(document.getElementById('martingaleLimit').value);
+
+        // One-Shot Recovery Logic
+        if(martingaleStep < limit) {
+            martingaleStep++;
+            currentStake = (currentStake * mult).toFixed(2);
+            log(`🛡️ ATTEMPTING RECOVERY (Try ${martingaleStep}/${limit}) - Stake: $${currentStake}`, "log-warn");
+        } else {
+            log(`❌ Recovery Failed or Limit Reached. Resetting Stake.`, "log-loss");
+            resetLadder(); // Hard Reset
+        }
+
+        // Pause Logic
+        if(pauseTime > 0) {
+            document.getElementById('countdownOverlay').style.display = 'block';
+            document.getElementById('countdownLabel').innerText = "PAUSED";
+            
+            let timeLeft = pauseTime;
+            const timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('countdownTimer').innerText = timeLeft;
+                if(timeLeft <= 0) {
+                    clearInterval(timer);
+                    document.getElementById('countdownOverlay').style.display = 'none';
+                    log("🟢 Safety Pause Ended.", "log-info");
+                }
+            }, 1000);
+            log(`🛑 Pausing ${pauseTime}s...`, "log-warn");
+        }
     }
 
     function resetData() {
@@ -525,39 +588,29 @@
         const counts = {}; tickHistory.forEach(x => counts[x] = (counts[x] || 0) + 1);
         
         let stats = [];
-        let maxPerc = -1;
-        let hot = -1;
-        
         for(let i=0; i<=9; i++) {
             const p = count === 0 ? 0 : (counts[i] || 0) / count * 100;
             displayedPercentages[i] += (p - displayedPercentages[i]) * 0.2;
             document.getElementById(`dp-${i}`).innerText = displayedPercentages[i].toFixed(1) + "%";
             document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'second-cold-digit', 'hot-digit', 'random-digit');
             stats.push({ digit: i, perc: p });
-            if(p > maxPerc) { maxPerc = p; hot = i; }
         }
-        
-        // VISUAL HOT TOGGLE
+
         const showHot = document.getElementById('visualHotToggle').checked;
-        if (showHot && hot !== -1) {
-            // Find top 3 hot for visual accuracy
-            const sortedByHot = [...stats].sort((a, b) => b.perc - a.perc);
-            const hotDigits = [sortedByHot[0].digit, sortedByHot[1].digit, sortedByHot[2].digit];
+        const sortedByHot = [...stats].sort((a, b) => b.perc - a.perc);
+        const hotDigits = [sortedByHot[0].digit, sortedByHot[1].digit, sortedByHot[2].digit];
+        
+        if(showHot) {
             hotDigits.forEach(d => document.getElementById(`dbox-${d}`).classList.add('hot-digit'));
         }
 
         let finalTarget = -1;
         
         if (isEntropyMode) {
-            // CHECK THE NEW "AVOID HOT" TOGGLE
             const avoidHot = document.getElementById('avoidHotToggle').checked;
-            
             let pool = [0,1,2,3,4,5,6,7,8,9];
             
             if (avoidHot) {
-                // If Avoiding, remove top 3
-                const sortedByHot = [...stats].sort((a, b) => b.perc - a.perc);
-                const hotDigits = [sortedByHot[0].digit, sortedByHot[1].digit, sortedByHot[2].digit];
                 pool = pool.filter(d => !hotDigits.includes(d));
             }
             
@@ -567,7 +620,6 @@
             document.getElementById(`dbox-${finalTarget}`).classList.add('random-digit');
             currentMinPerc = displayedPercentages[finalTarget]; 
         } else {
-            // STANDARD STATS: Coldest
             stats.sort((a, b) => a.perc - b.perc);
             const safeFloor = parseFloat(document.getElementById('safeFloor').value);
             let candidate = stats[0]; 
