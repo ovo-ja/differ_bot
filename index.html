@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V43 (Quick Set)</title>
+    <title>Smart Trade Bot V45 (Progress Bar)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -91,6 +91,11 @@
         
         .manager-panel { background: rgba(249, 115, 22, 0.1); border: 1px solid var(--accent-orange); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
         .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+
+        /* PROGRESS BAR STYLES */
+        .progress-container { height: 20px; background: #2d3748; margin-top: 10px; border-radius: 10px; overflow: hidden; position: relative; display: none; }
+        .progress-fill { height: 100%; width: 0%; background: var(--accent-purple); transition: width 0.3s; }
+        .progress-text { position: absolute; width: 100%; top: 0; left: 0; text-align: center; font-size: 0.8em; font-weight: bold; line-height: 20px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); z-index: 2; }
     </style>
 </head>
 <body>
@@ -143,7 +148,7 @@
             </div>
         </div>
         <div style="margin-top:5px;">
-            <label>Pause on Loss (Seconds):</label>
+            <label>Pause on Loss (s):</label>
             <input type="number" id="lossPause" value="30" style="border-color:var(--accent-orange)">
         </div>
     </div>
@@ -260,7 +265,7 @@
         <div class="sequence-controls">
             <div style="flex:1;">
                 <label style="color:var(--accent-purple);">Total Trades:</label>
-                <input type="number" id="seqLength" value="3" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
+                <input type="number" id="seqLength" value="3" min="1" max="100" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
             </div>
             <div style="flex:1; display:flex; gap:5px; align-items:flex-end;">
                 <button class="btn btn-mini" onclick="setAllDelays('0')">⚡ All Inst</button>
@@ -274,8 +279,9 @@
         <button id="btnSingle" class="btn btn-green" onclick="placeSingleManualTrade()">✅ Place Single Trade</button>
         <button id="btnStop" class="btn btn-stop" onclick="stopTrading()">🛑 STOP TRADING</button>
         
-        <div id="loadingBar" style="height: 4px; background: #2d3748; margin-top: 5px; border-radius: 2px; overflow: hidden; display: none;">
-            <div id="progressFill" style="height: 100%; width: 0%; background: var(--accent-purple); transition: width 0.3s;"></div>
+        <div id="loadingBar" class="progress-container">
+            <div id="progressFill" class="progress-fill"></div>
+            <div id="progressText" class="progress-text">Ready</div>
         </div>
     </div>
 
@@ -305,7 +311,8 @@
     let currentStake = 0.35;
     let ladderCount = 0;
     let martingaleStep = 0;
-    let tradeResolver = null; // Promise resolver for sync trading
+    let tradeResolver = null;
+    let isPaused = false;
 
     // Init
     window.onload = function() { updateSequenceUI(); };
@@ -343,7 +350,6 @@
         }
     }
 
-    // NEW QUICK SET FUNCTION
     function setAllDelays(val) {
         const length = parseInt(document.getElementById('seqLength').value) || 1;
         for(let i=0; i<length; i++) {
@@ -403,7 +409,7 @@
             if(currentTargetDigit === null) { await new Promise(r => setTimeout(r, 1000)); continue; }
             const maxThreshold = parseFloat(document.getElementById('threshold').value);
             
-            if(currentMinPerc <= maxThreshold) {
+            if(currentMinPerc <= maxThreshold && !isPaused && !isRunning) {
                 log(`🎯 TRIGGERED: Target (${currentTargetDigit}) is ${currentMinPerc.toFixed(1)}%`, "log-win");
                 const delay = Math.floor(Math.random() * 4000) + 2000;
                 document.getElementById('countdownOverlay').style.display = 'block';
@@ -412,7 +418,7 @@
                 await new Promise(r => setTimeout(r, delay));
                 document.getElementById('countdownOverlay').style.display = 'none';
 
-                if(!shouldStop) await runCustomSequence(true);
+                if(!shouldStop && !isPaused) await runCustomSequence(true);
             }
             await new Promise(r => setTimeout(r, 2000));
         }
@@ -475,16 +481,11 @@
                     triggerSafetyProtocol();
                 }
                 
-                // UNLOCK SEQUENCE
-                if(tradeResolver) {
-                    tradeResolver();
-                    tradeResolver = null;
-                }
+                if(tradeResolver) { tradeResolver(); tradeResolver = null; }
             }
         };
     }
 
-    // --- LOGIC: LADDER + SAFETY ---
     function processLadder(winAmount) {
         if(martingaleStep > 0) {
             log(`✅ RECOVERY SUCCESSFUL! Resetting.`, "log-win");
@@ -532,13 +533,14 @@
         if(martingaleStep < limit) {
             martingaleStep++;
             currentStake = (currentStake * mult).toFixed(2);
-            log(`🛡️ ATTEMPTING RECOVERY (Try ${martingaleStep}/${limit}) - Stake: $${currentStake}`, "log-warn");
+            log(`🛡️ RECOVERY MODE (Try ${martingaleStep}/${limit}) - Stake: $${currentStake}`, "log-warn");
         } else {
             log(`❌ Recovery Failed or Limit Reached. Resetting.`, "log-loss");
             resetLadder();
         }
 
         if(pauseTime > 0) {
+            isPaused = true;
             document.getElementById('countdownOverlay').style.display = 'block';
             document.getElementById('countdownLabel').innerText = "PAUSED";
             let timeLeft = pauseTime;
@@ -547,6 +549,7 @@
                 document.getElementById('countdownTimer').innerText = timeLeft;
                 if(timeLeft <= 0) {
                     clearInterval(timer);
+                    isPaused = false;
                     document.getElementById('countdownOverlay').style.display = 'none';
                     log("🟢 Safety Pause Ended.", "log-info");
                 }
@@ -683,8 +686,28 @@
         if(isRunning) return;
         resetLadder();
         startRunState();
-        await placeTrade();
+        await new Promise(resolve => {
+            tradeResolver = resolve;
+            placeTrade();
+        });
         endRunState();
+    }
+
+    // --- PROGRESS BAR UPDATE ---
+    function updateProgress(current, total) {
+        const fill = document.getElementById('progressFill');
+        const text = document.getElementById('progressText');
+        const pct = (current / total) * 100;
+        
+        fill.style.width = pct + "%";
+        text.innerText = `Trade ${current} / ${total}`;
+        
+        if(martingaleStep > 0) {
+            fill.style.background = "var(--accent-red)";
+            text.innerText = `⚠️ RECOVERY MODE (Try ${martingaleStep})`;
+        } else {
+            fill.style.background = "var(--accent-purple)";
+        }
     }
 
     async function runCustomSequence(internalCall = false) {
@@ -693,9 +716,12 @@
         const length = parseInt(document.getElementById('seqLength').value) || 1;
         
         for(let i=0; i<length; i++) {
-            if(shouldStop) break;
+            if(shouldStop && martingaleStep === 0) break;
             
-            const delayVal = document.getElementById(`seq-delay-${i}`).value;
+            // UPDATE PROGRESS
+            updateProgress(i + 1, length);
+            
+            const delayVal = document.getElementById(`seq-delay-${i}`) ? document.getElementById(`seq-delay-${i}`).value : 'random';
             let waitTime = 0;
             
             if(delayVal === 'random') {
@@ -704,35 +730,56 @@
                 waitTime = parseInt(delayVal);
             }
 
-            if(waitTime > 0) {
+            if(waitTime > 0 && martingaleStep === 0) {
                 document.getElementById('countdownOverlay').style.display = 'block';
                 document.getElementById('countdownLabel').innerText = delayVal === 'random' ? "RND DELAY" : "WAITING";
                 for(let s=waitTime; s>0; s--) { 
-                    if(shouldStop) break; 
+                    if(shouldStop && martingaleStep === 0) break; 
                     document.getElementById('countdownTimer').innerText = s; 
                     await new Promise(r => setTimeout(r, 1000)); 
                 }
                 document.getElementById('countdownOverlay').style.display = 'none';
             }
-            if(shouldStop) break;
+
+            if(shouldStop && martingaleStep === 0) break;
             
-            // WAIT FOR TRADE TO COMPLETE (SYNC FIX)
+            while(isPaused) await new Promise(r => setTimeout(r, 500));
+
             await new Promise(resolve => {
                 tradeResolver = resolve;
                 placeTrade();
             });
         }
+
+        // OVERTIME RECOVERY
+        const maxRecovery = parseInt(document.getElementById('martingaleLimit').value);
+        while (martingaleStep > 0 && martingaleStep <= maxRecovery && !shouldStop) {
+            log(`⚠️ Sequence ended on LOSS. Entering Relentless Recovery...`, "log-warn");
+            updateProgress(length, length); // Keep full bar but red
+            while(isPaused) await new Promise(r => setTimeout(r, 1000));
+            await new Promise(resolve => {
+                tradeResolver = resolve;
+                placeTrade();
+            });
+        }
+
         if(!internalCall) endRunState();
     }
 
     function placeTrade() {
         const target = manualOverrideDigit !== null ? manualOverrideDigit : currentTargetDigit;
         if(target === null) return;
-        document.getElementById('progressFill').style.width = "100%";
         ws.send(JSON.stringify({proposal:1, amount:currentStake, barrier:target, basis:'stake', contract_type:'DIGITDIFF', currency:'USD', duration:1, duration_unit:'t', symbol:document.getElementById('market').value}));
     }
 
-    function startRunState() { isRunning = true; shouldStop = false; document.getElementById('loadingBar').style.display = 'block'; document.getElementById('btnStop').style.display = 'block'; document.getElementById('btnStartCustom').disabled = true; document.getElementById('btnSingle').disabled = true; }
+    function startRunState() { 
+        isRunning = true; 
+        shouldStop = false; 
+        document.getElementById('loadingBar').style.display = 'block'; 
+        document.getElementById('btnStop').style.display = 'block'; 
+        document.getElementById('btnStartCustom').disabled = true; 
+        document.getElementById('btnSingle').disabled = true; 
+    }
 
     function endRunState() { 
         isRunning = false; 
@@ -745,7 +792,7 @@
         }
     }
 
-    function stopTrading() { shouldStop = true; if(isAutoPilot) document.getElementById('autoPilotToggle').click(); endRunState(); log("🛑 Stopped.", "log-loss"); }
+    function stopTrading() { shouldStop = true; if(isAutoPilot) document.getElementById('autoPilotToggle').click(); log("🛑 Stop Command Received.", "log-warn"); }
 
     function log(msg, cls) { const area = document.getElementById('logArea'); area.innerHTML = `<div class="${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>` + area.innerHTML; }
 </script>
