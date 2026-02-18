@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V41 (One-Shot Recovery)</title>
+    <title>Smart Trade Bot V43 (Quick Set)</title>
     <style>
         :root {
             --bg-dark: #0f111a;
@@ -72,6 +72,8 @@
         .btn-green { background: var(--accent-green); }
         .btn-purple { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
         .btn-stop { background: var(--accent-red); display: none; }
+        .btn-mini { padding: 5px 10px; font-size: 0.7em; margin: 0; width: auto; background: #374151; border: 1px solid #4b5563; }
+        .btn-mini:hover { background: #4b5563; }
         
         .log-area { font-family: monospace; font-size: 0.8em; height: 180px; overflow-y: auto; background: #0f111a; padding: 10px; border-radius: 6px; border: 1px solid #2d3748; }
         .log-win { color: var(--accent-green); }
@@ -87,7 +89,6 @@
 
         #countdownOverlay { font-size: 0.9em; color: var(--accent-orange); font-weight: bold; margin-top: 5px; display: none; }
         
-        /* MANAGER & SAFETY PANEL */
         .manager-panel { background: rgba(249, 115, 22, 0.1); border: 1px solid var(--accent-orange); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
         .safety-panel { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
     </style>
@@ -127,29 +128,23 @@
                 <input type="text" id="ladderStatus" value="0 / 3" disabled style="text-align:center;">
             </div>
         </div>
-        <div style="font-size:0.7em; color:var(--text-secondary); margin-top:5px;">
-            Reinvests wins. Resets on loss or goal.
-        </div>
     </div>
 
     <div class="card safety-panel">
-        <div style="font-weight:bold; color:var(--accent-red); margin-bottom:5px;">🛡️ RECOVERY & SAFETY</div>
+        <div style="font-weight:bold; color:var(--accent-red); margin-bottom:5px;">🛡️ ONE-SHOT RECOVERY</div>
         <div style="display: flex; gap: 10px;">
             <div style="flex:1">
-                <label>Recovery Multiplier:</label>
+                <label>Multiplier (x):</label>
                 <input type="number" id="martingale" value="11" step="0.5" style="border-color:var(--accent-red)">
             </div>
             <div style="flex:1">
-                <label>Max Recovery Tries:</label>
+                <label>Max Attempts:</label>
                 <input type="number" id="martingaleLimit" value="1" min="0" max="5">
             </div>
         </div>
         <div style="margin-top:5px;">
             <label>Pause on Loss (Seconds):</label>
             <input type="number" id="lossPause" value="30" style="border-color:var(--accent-orange)">
-        </div>
-        <div style="font-size:0.7em; color:var(--text-secondary); margin-top:5px; line-height:1.2;">
-            <b>One-Shot:</b> With Limit=1, bot tries to recover ONCE. If that fails, it resets to base stake.
         </div>
     </div>
 
@@ -267,8 +262,9 @@
                 <label style="color:var(--accent-purple);">Total Trades:</label>
                 <input type="number" id="seqLength" value="3" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);">
             </div>
-            <div style="flex:2; font-size:0.8em; color:var(--text-secondary); line-height:1.2;">
-                Auto-Pilot will use these settings for the sequence.
+            <div style="flex:1; display:flex; gap:5px; align-items:flex-end;">
+                <button class="btn btn-mini" onclick="setAllDelays('0')">⚡ All Inst</button>
+                <button class="btn btn-mini" onclick="setAllDelays('random')">🎲 All Rnd</button>
             </div>
         </div>
 
@@ -304,11 +300,12 @@
     let displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
     let isConnected = false;
     
-    // MANAGER & SAFETY VARIABLES
+    // VARIABLES
     let baseStake = 0.35;
     let currentStake = 0.35;
     let ladderCount = 0;
-    let martingaleStep = 0; // Tracks recovery attempts
+    let martingaleStep = 0;
+    let tradeResolver = null; // Promise resolver for sync trading
 
     // Init
     window.onload = function() { updateSequenceUI(); };
@@ -346,6 +343,15 @@
         }
     }
 
+    // NEW QUICK SET FUNCTION
+    function setAllDelays(val) {
+        const length = parseInt(document.getElementById('seqLength').value) || 1;
+        for(let i=0; i<length; i++) {
+            const el = document.getElementById(`seq-delay-${i}`);
+            if(el) el.value = val;
+        }
+    }
+
     function switchMarket() {
         if(!isConnected) return;
         ws.send(JSON.stringify({ forget_all: 'ticks' }));
@@ -362,9 +368,7 @@
         isEntropyMode = document.getElementById('entropyToggle').checked;
         const avoidHot = document.getElementById('avoidHotToggle').checked;
         if(isEntropyMode) {
-            log(`🎲 Entropy Mode: ${avoidHot ? "SAFE (No Hot)" : "CHAOS (Any)"}`, "log-info");
-        } else {
-            log("📊 Entropy Mode DISABLED: Returning to Statistics", "log-info");
+            log(`🎲 Entropy Mode: ${avoidHot ? "SAFE" : "CHAOS"}`, "log-info");
         }
         if(tickHistory.length > 0) updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value));
     }
@@ -381,7 +385,7 @@
             statusText.style.color = "var(--accent-green)";
             
             resetLadder();
-            log(`🤖 Auto-Pilot ARMED (Manager Active).`, "log-win");
+            log(`🤖 Auto-Pilot ARMED.`, "log-win");
             startAutoPilotWatch();
         } else {
             document.getElementById('btnStartCustom').disabled = false;
@@ -397,23 +401,18 @@
         shouldStop = false;
         while(isAutoPilot && !shouldStop) {
             if(currentTargetDigit === null) { await new Promise(r => setTimeout(r, 1000)); continue; }
-            
             const maxThreshold = parseFloat(document.getElementById('threshold').value);
             
             if(currentMinPerc <= maxThreshold) {
                 log(`🎯 TRIGGERED: Target (${currentTargetDigit}) is ${currentMinPerc.toFixed(1)}%`, "log-win");
-                
                 const delay = Math.floor(Math.random() * 4000) + 2000;
                 document.getElementById('countdownOverlay').style.display = 'block';
                 document.getElementById('countdownLabel').innerText = "RND DELAY";
                 document.getElementById('countdownTimer').innerText = (delay/1000).toFixed(1);
-                
                 await new Promise(r => setTimeout(r, delay));
                 document.getElementById('countdownOverlay').style.display = 'none';
 
-                if(!shouldStop) {
-                    await runCustomSequence(true);
-                }
+                if(!shouldStop) await runCustomSequence(true);
             }
             await new Promise(r => setTimeout(r, 2000));
         }
@@ -442,10 +441,8 @@
                 document.getElementById('accountInfo').style.display = 'block';
                 document.getElementById('statusText').innerText = "Connected";
                 document.getElementById('statusText').style.color = "var(--accent-green)";
-                
                 baseStake = parseFloat(document.getElementById('stake').value);
                 currentStake = baseStake;
-
                 ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
                 const market = document.getElementById('market').value;
                 ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
@@ -477,22 +474,25 @@
                     log(`LOSS ($${Math.abs(profit).toFixed(2)})`, "log-loss");
                     triggerSafetyProtocol();
                 }
+                
+                // UNLOCK SEQUENCE
+                if(tradeResolver) {
+                    tradeResolver();
+                    tradeResolver = null;
+                }
             }
         };
     }
 
-    // --- MANAGER & SAFETY LOGIC ---
+    // --- LOGIC: LADDER + SAFETY ---
     function processLadder(winAmount) {
-        // If we won a recovery trade, reset everything
         if(martingaleStep > 0) {
             log(`✅ RECOVERY SUCCESSFUL! Resetting.`, "log-win");
             resetLadder();
             return;
         }
-
         const maxSteps = parseInt(document.getElementById('ladderSteps').value);
         ladderCount++;
-        
         if(ladderCount >= maxSteps) {
             log(`🎉 Ladder Goal Reached! Resetting.`, "log-win");
             resetLadder();
@@ -505,7 +505,7 @@
 
     function resetLadder() {
         ladderCount = 0;
-        martingaleStep = 0; // Reset recovery count
+        martingaleStep = 0;
         baseStake = parseFloat(document.getElementById('stake').value);
         currentStake = baseStake;
         updateLadderUI();
@@ -522,29 +522,25 @@
     }
 
     function triggerSafetyProtocol() {
-        // Stop Ladder Logic immediately on loss
         ladderCount = 0;
         updateLadderUI();
-
+        
         const pauseTime = parseInt(document.getElementById('lossPause').value);
         const mult = parseFloat(document.getElementById('martingale').value);
         const limit = parseInt(document.getElementById('martingaleLimit').value);
 
-        // One-Shot Recovery Logic
         if(martingaleStep < limit) {
             martingaleStep++;
             currentStake = (currentStake * mult).toFixed(2);
             log(`🛡️ ATTEMPTING RECOVERY (Try ${martingaleStep}/${limit}) - Stake: $${currentStake}`, "log-warn");
         } else {
-            log(`❌ Recovery Failed or Limit Reached. Resetting Stake.`, "log-loss");
-            resetLadder(); // Hard Reset
+            log(`❌ Recovery Failed or Limit Reached. Resetting.`, "log-loss");
+            resetLadder();
         }
 
-        // Pause Logic
         if(pauseTime > 0) {
             document.getElementById('countdownOverlay').style.display = 'block';
             document.getElementById('countdownLabel').innerText = "PAUSED";
-            
             let timeLeft = pauseTime;
             const timer = setInterval(() => {
                 timeLeft--;
@@ -609,11 +605,9 @@
         if (isEntropyMode) {
             const avoidHot = document.getElementById('avoidHotToggle').checked;
             let pool = [0,1,2,3,4,5,6,7,8,9];
-            
             if (avoidHot) {
                 pool = pool.filter(d => !hotDigits.includes(d));
             }
-            
             const randomIndex = Math.floor(Math.random() * pool.length);
             finalTarget = pool[randomIndex];
             
@@ -689,7 +683,7 @@
         if(isRunning) return;
         resetLadder();
         startRunState();
-        await placeTrade(1, 1);
+        await placeTrade();
         endRunState();
     }
 
@@ -713,7 +707,6 @@
             if(waitTime > 0) {
                 document.getElementById('countdownOverlay').style.display = 'block';
                 document.getElementById('countdownLabel').innerText = delayVal === 'random' ? "RND DELAY" : "WAITING";
-                
                 for(let s=waitTime; s>0; s--) { 
                     if(shouldStop) break; 
                     document.getElementById('countdownTimer').innerText = s; 
@@ -722,17 +715,21 @@
                 document.getElementById('countdownOverlay').style.display = 'none';
             }
             if(shouldStop) break;
-            await placeTrade(i+1, length);
+            
+            // WAIT FOR TRADE TO COMPLETE (SYNC FIX)
+            await new Promise(resolve => {
+                tradeResolver = resolve;
+                placeTrade();
+            });
         }
         if(!internalCall) endRunState();
     }
 
-    async function placeTrade(current, total) {
+    function placeTrade() {
         const target = manualOverrideDigit !== null ? manualOverrideDigit : currentTargetDigit;
         if(target === null) return;
-        document.getElementById('progressFill').style.width = (current / total * 100) + "%";
+        document.getElementById('progressFill').style.width = "100%";
         ws.send(JSON.stringify({proposal:1, amount:currentStake, barrier:target, basis:'stake', contract_type:'DIGITDIFF', currency:'USD', duration:1, duration_unit:'t', symbol:document.getElementById('market').value}));
-        await new Promise(r => setTimeout(r, 1500));
     }
 
     function startRunState() { isRunning = true; shouldStop = false; document.getElementById('loadingBar').style.display = 'block'; document.getElementById('btnStop').style.display = 'block'; document.getElementById('btnStartCustom').disabled = true; document.getElementById('btnSingle').disabled = true; }
