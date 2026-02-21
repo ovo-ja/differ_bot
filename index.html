@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V25 (Manual Martingale Edition)</title>
+    <title>Smart Trade Bot V26 (Zero-Delay & Auto-Reconnect)</title>
     <style>
         :root {
             --bg-dark: #0f111a; --card-bg: #1c1f2e; --bg-alt: #252a3d;
@@ -201,11 +201,12 @@
 </div>
 
 <script>
-/** * Smart Trade Bot - Manual Martingale Edition
+/** * Smart Trade Bot - Auto-Reconnect & Zero-Delay Execution Edition
  */
 const App = (() => {
     const APP_ID = 1089;
     let ws = null;
+    let isReconnecting = false;
     
     // Core State
     const State = {
@@ -272,7 +273,6 @@ const App = (() => {
         
         arr.forEach(item => {
             DOM[`dp-${item.digit}`].innerText = item.perc.toFixed(1) + '%';
-            // Safely remove status classes without destroying the active-tick animation
             DOM[`dbox-${item.digit}`].classList.remove('cold-digit', 'hot-digit', 'manual-digit');
         });
 
@@ -326,12 +326,35 @@ const App = (() => {
         DOM.payoutRatioDisplay.innerText = (State.martingale.lastPayoutRatio * 100).toFixed(1) + '%';
     };
 
+    // Keep-alive Ping to prevent API disconnects when idle
+    setInterval(() => {
+        if(State.connected && ws && ws.readyState === 1) {
+            ws.send(JSON.stringify({ ping: 1 }));
+        }
+    }, 15000); 
+
     const connectAPI = () => {
         const token = DOM.apiToken.value;
         if(!token) return alert("Enter Token");
         
+        if(ws && ws.readyState === 1) return; // Prevent double connections
+
         ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
-        ws.onopen = () => { ws.send(JSON.stringify({ authorize: token })); log("Connecting..."); };
+        
+        ws.onopen = () => { 
+            ws.send(JSON.stringify({ authorize: token })); 
+            if(!isReconnecting) log("Connecting..."); 
+        };
+
+        ws.onclose = () => {
+            State.connected = false;
+            DOM.statusText.innerText = "Reconnecting...";
+            DOM.statusText.className = "text-sm c-orange";
+            isReconnecting = true;
+            setTimeout(connectAPI, 3000); // Auto-reconnect loop triggers every 3 seconds if dropped
+        };
+
+        ws.onerror = () => ws.close(); // Force the close event to trigger the reconnect loop
         
         ws.onmessage = (msg) => {
             const data = JSON.parse(msg.data);
@@ -343,15 +366,24 @@ const App = (() => {
                 DOM.accountInfo.style.display = 'block';
                 DOM.statusText.innerText = "Connected";
                 DOM.statusText.className = "text-sm c-green";
+                if(isReconnecting) log("Connection Restored!", "log-win");
+                isReconnecting = false;
+                
                 ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-                switchMarket();
+                switchMarket(); // Re-sync the market ticks after connection is established
             }
 
             if(data.msg_type === 'balance') DOM.balanceDisplay.innerText = `$${data.balance.balance}`;
             if(data.msg_type === 'tick') handleTick(data.tick.quote);
-            if(data.msg_type === 'proposal') ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
-            if(data.msg_type === 'buy') ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 }));
-            if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract.is_sold) resolveTrade(data.proposal_open_contract);
+            
+            // Subscribes to contract updates immediately upon successful direct purchase
+            if(data.msg_type === 'buy') {
+                ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 }));
+            }
+            
+            if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract.is_sold) {
+                resolveTrade(data.proposal_open_contract);
+            }
         };
     };
 
@@ -379,14 +411,12 @@ const App = (() => {
         
         log(`${isWin ? '✅ WIN' : '❌ LOSS'} ${profit > 0 ? '+' : ''}$${profit.toFixed(2)} | Digit ${barrier}`, isWin ? 'log-win' : 'log-loss');
 
-        // Update Payout Ratio based on actual performance
         if(isWin && buyPrice > 0) {
             State.martingale.payoutSamples.push(profit / buyPrice);
             if(State.martingale.payoutSamples.length > 20) State.martingale.payoutSamples.shift();
             State.martingale.lastPayoutRatio = State.martingale.payoutSamples.reduce((a,b)=>a+b,0) / State.martingale.payoutSamples.length;
         }
 
-        // Apply Manual Martingale Logic
         if(DOM.martingaleToggle.checked) {
             if(isWin) {
                 if(State.martingale.step > 0) log(`Recovery Successful! Back to base stake.`, "log-win");
@@ -394,7 +424,7 @@ const App = (() => {
                 State.martingale.recoveryAmount = 0;
             } else {
                 State.martingale.step++;
-                State.martingale.recoveryAmount += Math.abs(profit); // Accumulate losses
+                State.martingale.recoveryAmount += Math.abs(profit); 
                 
                 const neededStake = State.martingale.recoveryAmount / State.martingale.lastPayoutRatio;
                 const max = parseFloat(DOM.martingaleMaxStake.value) || 50;
@@ -424,10 +454,21 @@ const App = (() => {
         
         log(`Trading $${stake} on digit ${target}...`, "log-warn");
         
+        // OPTIMIZATION: Direct Parameter Buy (Zero-Delay Execution)
+        // Bypasses the proposal requirement entirely to eliminate latency.
         ws.send(JSON.stringify({
-            proposal: 1, amount: stake, barrier: target, basis: 'stake', 
-            contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, 
-            duration_unit: 't', symbol: DOM.market.value
+            buy: 1, 
+            price: stake, 
+            parameters: {
+                amount: stake, 
+                basis: 'stake', 
+                contract_type: 'DIGITDIFF', 
+                currency: 'USD', 
+                duration: 1, 
+                duration_unit: 't', 
+                symbol: DOM.market.value,
+                barrier: target.toString()
+            }
         }));
     };
 
@@ -455,14 +496,14 @@ const App = (() => {
         connectAPI, switchMarket, updateMartingaleUI,
         stopTrading: () => { State.shouldStop = true; endRunState(); log("STOPPED TRADING", "log-loss"); },
         setManualDigit: (d) => {
-            State.manualOverride = d === State.manualOverride ? null : d; // toggle off if clicked again
+            State.manualOverride = d === State.manualOverride ? null : d; 
             for(let i=0; i<=9; i++) DOM[`dbox-${i}`].classList.remove('manual-digit');
             if(State.manualOverride !== null) {
                 DOM[`dbox-${d}`].classList.add('manual-digit');
                 DOM.targetDigitDisplay.innerText = d;
                 DOM.targetStatusMsg.innerText = `Manual: ${d}`;
             } else {
-                updateUI(); // revert to auto display
+                updateUI(); 
             }
         },
         placeManualTrade: () => placeTrade(State.manualOverride !== null ? State.manualOverride : State.currentTarget)
