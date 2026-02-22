@@ -3,118 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Trade Bot V26 (Zero-Delay & Auto-Reconnect)</title>
+    <title>Smart Trade Bot V24 (Hot/Cold Targeting Fix)</title>
     <style>
         :root {
-            --bg-dark: #0f111a; --card-bg: #1c1f2e; --bg-alt: #252a3d;
-            --text-primary: #ffffff; --text-secondary: #8b9bb4;
-            --accent-blue: #3b82f6; --accent-red: #ef4444; 
-            --accent-green: #10b981; --accent-orange: #f97316;
-            --accent-purple: #8b5cf6; --accent-cyan: #06b6d4;
+            --bg-dark: #0f111a;
+            --card-bg: #1c1f2e;
+            --text-primary: #ffffff;
+            --text-secondary: #8b9bb4;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
+            --accent-orange: #f97316;
+            --accent-purple: #8b5cf6;
+            --accent-cyan: #06b6d4;
         }
-        
-        * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Roboto, sans-serif; background-color: var(--bg-dark); color: var(--text-primary); margin: 0; padding: 20px; display: flex; justify-content: center; }
-        
-        .flex-row { display: flex; gap: 10px; align-items: center; }
-        .flex-between { display: flex; justify-content: space-between; align-items: center; }
-        .flex-1 { flex: 1; } .flex-2 { flex: 2; }
-        .mb-1 { margin-bottom: 5px; } .mb-2 { margin-bottom: 10px; } .mb-3 { margin-bottom: 15px; }
-        .mt-1 { margin-top: 5px; } .mt-2 { margin-top: 8px; }
-        .text-center { text-align: center; } .text-right { text-align: right; }
-        .text-sm { font-size: 0.8em; } .text-xs { font-size: 0.75em; }
-        .bold { font-weight: bold; }
-        
-        .c-green { color: var(--accent-green); } .c-red { color: var(--accent-red); }
-        .c-blue { color: var(--accent-blue); } .c-orange { color: var(--accent-orange); }
-        .c-cyan { color: var(--accent-cyan); } .c-muted { color: var(--text-secondary); }
-        
         .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 15px; }
-        .card { background-color: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid #2d3748; }
-        .header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-        .header-border { border-bottom: 1px solid #2d3748; padding-bottom: 10px; margin-bottom: 15px; }
-        
-        input, select { background-color: var(--bg-dark); border: 1px solid #2d3748; color: white; padding: 10px; border-radius: 6px; width: 100%; }
+        .card { background-color: var(--card-bg); border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid #2d3748; padding-bottom: 10px; }
+        .balance-box { font-size: 1.5em; color: var(--accent-green); text-align: right; font-family: monospace; }
+        input, select { background-color: #0f111a; border: 1px solid #2d3748; color: white; padding: 10px; border-radius: 6px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
         label { font-size: 0.8em; color: var(--text-secondary); margin-bottom: 4px; display: block; }
         
-        /* Toggle Switch */
-        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .autopilot-wrapper { background: rgba(16, 185, 129, 0.05); border: 1px solid var(--accent-green); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .autopilot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2d3748; transition: .3s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent-purple); }
-        input:checked + .slider:before { transform: translateX(22px); }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2d3748; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-green); }
+        input:checked + .slider:before { transform: translateX(26px); }
 
-        /* Displays & Grids */
-        .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; transition: all 0.3s; }
-        .target-number { font-size: 2.5em; font-weight: bold; }
+        .target-display { background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); color: var(--accent-blue); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.1em; margin-bottom: 10px; transition: all 0.5s; }
+        .target-number-container { height: 60px; position: relative; margin: 5px 0; }
+        .target-number { font-size: 2.5em; font-weight: bold; display: block; width: 100%; position: absolute; top: 0; left: 0; transition: transform 0.4s, opacity 0.4s; }
+        .slide-in { transform: translateY(0); opacity: 1; }
+        .slide-out-up { transform: translateY(-30px); opacity: 0; }
+        .slide-in-up { transform: translateY(30px); opacity: 0; } 
         
         .digit-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-        .digit-box { background-color: #2d3748; border-radius: 8px; padding: 8px 4px; text-align: center; transition: all 0.1s; border: 2px solid transparent; cursor: pointer; position: relative; min-height: 60px; display: flex; flex-direction: column; justify-content: center; }
+        .digit-box { background-color: #2d3748; border-radius: 8px; padding: 8px 4px; text-align: center; font-size: 0.9em; transition: all 0.1s; border: 2px solid transparent; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60px; }
         .digit-box:hover { background-color: #374151; }
         
-        .cold-digit { background-color: rgba(59, 130, 246, 0.15); border-color: var(--accent-blue); }
-        .hot-digit { border-color: var(--accent-red); opacity: 0.8; }
+        .cold-digit { background-color: rgba(59, 130, 246, 0.15); border: 2px solid var(--accent-blue); }
+        .hot-digit { border: 2px solid var(--accent-red); opacity: 0.9; }
         .manual-digit { background-color: rgba(249, 115, 22, 0.2) !important; border-color: var(--accent-orange) !important; }
         .active-tick { background-color: #ffffff !important; color: #000000 !important; transform: scale(1.1); z-index: 10; }
+        .targeted-digit { background-color: rgba(6, 182, 212, 0.15); border: 2px solid var(--accent-cyan); }
 
-        .badge { font-size: 0.6em; padding: 2px 6px; border-radius: 4px; position: absolute; top: -5px; right: -5px; font-weight: bold; display: none; z-index: 5; color: white; }
-        .cold-digit .badge-cold { display: block; background: var(--accent-blue); }
-        .hot-digit .badge-hot { display: block; background: var(--accent-red); }
-        
-        .result-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.8em; opacity: 0; pointer-events: none; transition: all 0.4s ease-out; z-index: 20; }
+        .badge { font-size: 0.6em; padding: 2px 6px; border-radius: 4px; position: absolute; top: -5px; right: -5px; font-weight: bold; display: none; z-index: 5; }
+        .cold-digit .badge-cold { display: block; background-color: var(--accent-blue); color: white; }
+        .hot-digit .badge-hot { display: block; background-color: var(--accent-red); color: white; }
+
+        .rank-badge { font-size: 0.55em; padding: 1px 5px; border-radius: 3px; position: absolute; top: -5px; left: -5px; font-weight: bold; display: none; z-index: 5; background: var(--accent-cyan); color: white; }
+        .targeted-digit .rank-badge { display: block; }
+
+        .result-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2em; opacity: 0; pointer-events: none; transition: all 0.5s ease-out; z-index: 20; }
         .show-emoji { opacity: 1; transform: translate(-50%, -80%); }
 
-        /* Buttons */
-        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-bottom: 8px; transition: transform 0.1s; }
+        .btn { border: none; padding: 12px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; width: 100%; margin-bottom: 8px; font-size: 0.9em; transition: transform 0.1s; }
         .btn:active { transform: scale(0.98); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-connect { background: var(--accent-blue); }
         .btn-green { background: var(--accent-green); }
+        .btn-purple { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
         .btn-stop { background: var(--accent-red); display: none; }
         
-        /* Stats & Logs */
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
-        .stat-cell { background: var(--bg-alt); border-radius: 8px; padding: 10px 8px; text-align: center; }
-        .stat-value { font-size: 1.3em; font-weight: bold; font-family: monospace; display: block; }
-        .stat-label { font-size: 0.65em; color: var(--text-secondary); text-transform: uppercase; }
+        .log-area { font-family: monospace; font-size: 0.8em; height: 180px; overflow-y: auto; background: #0f111a; padding: 10px; border-radius: 6px; border: 1px solid #2d3748; }
+        .log-win { color: var(--accent-green); }
+        .log-loss { color: var(--accent-red); }
+        .log-info { color: var(--text-secondary); }
+        .log-warn { color: var(--accent-orange); }
         
-        .log-area { font-family: monospace; font-size: 0.8em; height: 160px; overflow-y: auto; background: var(--bg-dark); padding: 10px; border-radius: 6px; border: 1px solid #2d3748; }
-        .log-win { color: var(--accent-green); } .log-loss { color: var(--accent-red); }
-        .log-info { color: var(--text-secondary); } .log-warn { color: var(--accent-orange); }
+        .sequence-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; background: #252a3d; padding: 10px; border-radius: 8px; }
+        .sequence-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; margin-bottom: 10px; max-height: 200px; overflow-y: auto; }
+        .seq-step { background: #252a3d; padding: 5px; border-radius: 6px; text-align: center; }
+        .seq-step label { font-size: 0.7em; margin-bottom: 2px; color: var(--accent-purple); display: block; }
+        .seq-select { padding: 4px; font-size: 0.75em; margin-bottom: 0; border: 1px solid #3f4760; background: #1c1f2e; }
 
-        /* Martingale Box */
-        .recovery-box { background: rgba(139, 92, 246, 0.05); border: 1px solid var(--accent-purple); padding: 12px; border-radius: 8px; }
-        .data-row { display: flex; justify-content: space-between; padding: 8px; background: var(--bg-alt); border-radius: 6px; margin-top: 6px; }
+        #countdownOverlay { font-size: 0.9em; color: var(--accent-orange); font-weight: bold; margin-top: 5px; display: none; }
+
+        /* ── Martingale Card ── */
+        .martingale-wrapper { background: rgba(139, 92, 246, 0.05); border: 1px solid var(--accent-purple); padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .martingale-status { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #252a3d; border-radius: 6px; margin-top: 8px; font-family: monospace; font-size: 0.85em; }
+        .martingale-step { color: var(--accent-purple); font-weight: bold; }
+        .martingale-next-stake { color: var(--accent-orange); }
+
+        /* ── Streak & Stats Panel ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+        .stat-cell { background: #252a3d; border-radius: 8px; padding: 10px 8px; text-align: center; }
+        .stat-value { font-size: 1.3em; font-weight: bold; font-family: monospace; display: block; margin-bottom: 2px; }
+        .stat-label { font-size: 0.65em; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .streak-bar { display: flex; gap: 3px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+        .streak-dot { width: 12px; height: 12px; border-radius: 3px; transition: all 0.3s; }
+        .streak-dot.win { background: var(--accent-green); box-shadow: 0 0 6px rgba(16, 185, 129, 0.4); }
+        .streak-dot.loss { background: var(--accent-red); box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
+        .streak-dot.empty { background: #2d3748; }
+
+        /* ── Auto-Recovery Banner ── */
+        .recovery-banner { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 10px; display: none; animation: pulse-red 1.5s infinite; }
+        .recovery-banner.active { display: block; }
+        @keyframes pulse-red { 0%,100% { border-color: var(--accent-red); } 50% { border-color: var(--accent-orange); box-shadow: 0 0 12px rgba(239, 68, 68, 0.3); } }
+        .recovery-banner .recovery-text { font-weight: bold; color: var(--accent-red); font-size: 0.9em; }
+        .recovery-banner .recovery-detail { font-size: 0.75em; color: var(--text-secondary); margin-top: 4px; }
+
+        /* ── Tap & Trade Waiting Indicator ── */
+        .tap-waiting { animation: pulse-cyan 2s infinite; }
+        @keyframes pulse-cyan { 0%,100% { border-color: var(--accent-cyan); box-shadow: none; } 50% { border-color: var(--accent-cyan); box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); } }
+        .tap-status { font-size: 0.8em; color: var(--accent-cyan); margin-top: 5px; display: none; font-weight: bold; }
+        .tap-status.active { display: block; }
+
+        /* ── Strategy Toggles ── */
+        .strategy-toggle { display: flex; border-radius: 6px; overflow: hidden; border: 1px solid #2d3748; margin-bottom: 10px; }
+        .strategy-btn { flex: 1; padding: 8px; text-align: center; font-size: 0.75em; font-weight: bold; cursor: pointer; background: #0f111a; color: var(--text-secondary); transition: all 0.3s; border: none; }
+        .strategy-btn.active { background: var(--accent-cyan); color: white; }
+        .strategy-btn:first-child { border-right: 1px solid #2d3748; }
+
+        /* Target specific active states */
+        .btn-cold.active { background: var(--accent-blue); color: white; }
+        .btn-hot.active { background: var(--accent-red); color: white; }
+
+        /* ── Multi-Target Display ── */
+        .multi-target-pills { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+        .target-pill { background: rgba(6, 182, 212, 0.15); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9em; font-family: monospace; }
+        .target-pill.primary { background: rgba(59, 130, 246, 0.2); border-color: var(--accent-blue); color: var(--accent-blue); font-size: 1.1em; }
+        .target-pill.primary.hot { background: rgba(239, 68, 68, 0.2); border-color: var(--accent-red); color: var(--accent-red); }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="card">
-        <div class="header header-border">
+        <div class="header">
             <span>🔌 Connection</span>
-            <span id="statusText" class="text-sm c-red">Disconnected</span>
+            <div id="statusText" style="font-size: 0.8em; color: var(--accent-red);">Disconnected</div>
         </div>
-        <div id="loginForm" class="flex-row">
-            <input type="password" id="apiToken" placeholder="Deriv API Token" class="flex-2 mb-0">
-            <button class="btn btn-connect flex-1 mb-0" onclick="App.connectAPI()">Connect</button>
+        <div id="loginForm">
+            <input type="password" id="apiToken" placeholder="Paste Deriv API Token">
+            <button class="btn btn-connect" onclick="connectAPI()">Connect Account</button>
         </div>
         <div id="accountInfo" style="display:none;">
-            <div class="flex-between">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span>Balance:</span>
-                <span id="balanceDisplay" class="c-green bold text-right" style="font-size: 1.5em; font-family: monospace;">$0.00</span>
+                <span id="balanceDisplay" class="balance-box">$0.00</span>
             </div>
-            <div class="text-sm c-muted mt-1 text-right">Session: <span id="sessionProfit">$0.00</span></div>
+            <div style="font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">
+                Profit Session: <span id="sessionProfit">$0.00</span>
+            </div>
         </div>
     </div>
 
     <div class="card">
-        <div class="header mb-2">⚙️ Basic Settings</div>
-        <div class="flex-row mb-2">
-            <div class="flex-2">
+        <div class="header" style="margin-bottom: 5px; border-bottom: none;">⚙️ Settings</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+            <div style="flex: 2;">
                 <label>Market Pair</label>
-                <select id="market" onchange="App.switchMarket()">
+                <select id="market" onchange="switchMarket()">
                     <optgroup label="Jump Indices">
                         <option value="JD10" data-digits="2">Jump 10 Index</option>
                         <option value="JD25" data-digits="2">Jump 25 Index</option>
@@ -138,61 +182,159 @@
                     </optgroup>
                 </select>
             </div>
-            <div class="flex-1">
+            <div style="flex: 1;">
                 <label>Base Stake ($)</label>
                 <input type="number" id="stake" value="0.35" step="0.01">
             </div>
         </div>
-        <div class="flex-row">
-            <div class="flex-1"><label>Ticks Min</label><input type="number" id="tickMinimum" value="50" min="10"></div>
+        <div style="display: flex; gap: 10px; margin-bottom: 5px;">
+            <div style="flex: 1;">
+                <label>Tick Analysis Minimum</label>
+                <input type="number" id="tickMinimum" value="50" min="10" onchange="enforceMinimum()">
+            </div>
+            <div style="flex: 1;">
+                <label>Target Count (Top N)</label>
+                <input type="number" id="targetCount" value="1" min="1" max="5" onchange="updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value)||50)">
+            </div>
+        </div>
+        
+        <label>Target Preference</label>
+        <div class="strategy-toggle" id="targetModeToggle">
+            <button class="strategy-btn btn-cold active" data-target="coldest" onclick="setTargetMode('coldest')">❄️ COLDEST</button>
+            <button class="strategy-btn btn-hot" data-target="hottest" onclick="setTargetMode('hottest')">🔥 HOTTEST</button>
+        </div>
+
+        <label>Execution Strategy</label>
+        <div class="strategy-toggle" id="strategyToggle">
+            <button class="strategy-btn active" data-strategy="rapid" onclick="setStrategy('rapid')">⚡ RAPID FIRE</button>
+            <button class="strategy-btn" data-strategy="tap" onclick="setStrategy('tap')">👆 TAP & TRADE</button>
+        </div>
+        <div id="tapExplainer" style="display:none; font-size:0.72em; color:var(--accent-cyan); background:rgba(6,182,212,0.05); padding:8px; border-radius:6px; margin-bottom:5px;">
+            ℹ️ Each round: checks the target digit → waits for it to appear in ticks → places 1 trade → waits for result → repeats. Target is re-checked every round. Martingale carries across rounds.
+            <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+                <label style="flex:1; margin:0; font-size:1.1em; color:var(--accent-cyan);">Tap Rounds:</label>
+                <input type="number" id="tapRounds" value="5" min="1" max="50" style="flex:1; margin:0; border-color:var(--accent-cyan); font-size:1.1em;">
+            </div>
         </div>
     </div>
 
     <div class="card">
-        <div class="recovery-box">
-            <div class="flex-between mb-2">
-                <span class="bold c-muted">🔄 Smart Recovery (Manual)</span>
+        <div class="header" style="margin-bottom: 5px; border-bottom: none;">📊 Performance</div>
+        <div class="stats-grid">
+            <div class="stat-cell">
+                <span id="statWins" class="stat-value" style="color: var(--accent-green);">0</span>
+                <span class="stat-label">Wins</span>
+            </div>
+            <div class="stat-cell">
+                <span id="statLosses" class="stat-value" style="color: var(--accent-red);">0</span>
+                <span class="stat-label">Losses</span>
+            </div>
+            <div class="stat-cell">
+                <span id="statWinRate" class="stat-value" style="color: var(--accent-cyan);">0%</span>
+                <span class="stat-label">Win Rate</span>
+            </div>
+        </div>
+        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="stat-cell">
+                <span id="statCurrentStreak" class="stat-value">—</span>
+                <span class="stat-label">Current Streak</span>
+            </div>
+            <div class="stat-cell">
+                <span id="statMaxStreak" class="stat-value" style="color: var(--accent-purple);">0W / 0L</span>
+                <span class="stat-label">Best / Worst</span>
+            </div>
+        </div>
+        <div class="streak-bar" id="streakBar">
+            </div>
+    </div>
+
+    <div class="card">
+        <div class="header" style="margin-bottom: 5px; border-bottom: none;">🔄 Smart Recovery</div>
+        <div class="martingale-wrapper">
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight:bold; color:var(--text-secondary); font-size: 0.85em;">Enable</span>
                 <label class="switch">
-                    <input type="checkbox" id="martingaleToggle" onchange="App.updateMartingaleUI()">
+                    <input type="checkbox" id="martingaleToggle">
                     <span class="slider"></span>
                 </label>
             </div>
-            <div class="mb-2">
-                <label class="c-orange">Max Safety Limit ($)</label>
-                <input type="number" id="martingaleMaxStake" value="50" min="1" step="1" onchange="App.updateMartingaleUI()">
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label style="color: var(--accent-orange);">Max Recovery Stake ($)</label>
+                    <input type="number" id="martingaleMaxStake" value="50" min="1" step="1" style="border-color: var(--accent-orange); margin: 0;">
+                </div>
             </div>
-            <div class="data-row text-sm">
-                <span>Status: <span id="martingaleCurrentStep" class="c-green bold">NORMAL</span></span>
-                <span>Est. Payout: <span id="payoutRatioDisplay" class="c-cyan">9.6%</span></span>
+            <div class="martingale-status" id="recoveryStatusBar">
+                <span>Status: <span id="martingaleCurrentStep" class="martingale-step">NORMAL</span></span>
+                <span>Payout: <span id="payoutRatioDisplay" style="color:var(--accent-cyan);">—</span></span>
             </div>
-            <div class="data-row text-sm">
-                <span>To recover: <span id="recoveryAmountDisplay" class="c-red">$0.00</span></span>
-                <span>Next Stake: <span id="martingaleNextStake" class="c-orange">$0.35</span></span>
+            <div class="martingale-status" style="margin-top:4px;">
+                <span>To recover: <span id="recoveryAmountDisplay" class="martingale-next-stake">$0.00</span></span>
+                <span>Stake needed: <span id="martingaleNextStake" class="martingale-next-stake">$0.00</span></span>
             </div>
         </div>
     </div>
 
     <div class="card">
-        <div class="header mb-1">📊 Performance</div>
-        <div class="stats-grid">
-            <div class="stat-cell"><span id="statWins" class="stat-value c-green">0</span><span class="stat-label">Wins</span></div>
-            <div class="stat-cell"><span id="statLosses" class="stat-value c-red">0</span><span class="stat-label">Loss</span></div>
-            <div class="stat-cell"><span id="statWinRate" class="stat-value c-cyan">0%</span><span class="stat-label">Rate</span></div>
+        <div class="autopilot-wrapper">
+            <div class="autopilot-header">
+                <span id="controlModeText" style="font-weight:bold; color:var(--text-secondary);">✋ MANUAL MODE</span>
+                <label class="switch">
+                    <input type="checkbox" id="autoPilotToggle" onchange="toggleAutoPilot()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:5px;">
+                <label style="flex:1; margin:0;">Sequence Mode:</label>
+                <select id="autoPilotMode" style="flex:2; margin:0;">
+                    <option value="single">Place Single Trade</option>
+                    <option value="sequence">Run Custom Sequence</option>
+                    <option value="multi">Multi-Digit Sweep</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:5px;">
+                <label id="thresholdLabel" style="flex:1; margin:0; color:var(--accent-red);">Trigger Below:</label>
+                <input type="number" id="threshold" value="8" style="flex:2; margin:0; border-color:var(--accent-red);">
+                <span style="font-size:0.8em; color:#8b9bb4;">%</span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <label style="flex:1; margin:0; color:var(--accent-orange);">Stop After Losses:</label>
+                <input type="number" id="maxConsecLosses" value="5" min="1" style="flex:2; margin:0; border-color:var(--accent-orange);">
+            </div>
         </div>
-    </div>
 
-    <div class="card">
-        <div id="targetBox" class="target-display mb-2">
-            <div class="flex-between text-sm mb-1"><span>TARGET</span><span id="tickCounter">0 / 50</span></div>
-            <div class="target-number" id="targetDigitDisplay">⏳</div>
-            <div id="targetStatusMsg" class="text-sm mt-1">Collecting data...</div>
+        <div class="recovery-banner" id="recoveryBanner">
+            <div class="recovery-text">🔄 RECOVERING $<span id="recoveryStep">0.00</span></div>
+            <div class="recovery-detail">Staking $<span id="recoveryStake">0.00</span> on target digit (<span id="recoveryDigit">?</span>)</div>
         </div>
+
+        <div id="targetBox" class="target-display target-waiting">
+            <div style="display:flex; justify-content:space-between; font-size:0.8em; margin-bottom:5px;"><span>TARGET</span><span id="tickCounter">0 / 50</span></div>
+            <div class="target-number-container">
+                <span id="targetDigitDisplay" class="target-number slide-in">⏳</span>
+            </div>
+            <span id="targetStatusMsg" style="font-size: 0.8em;">Collecting data...</span>
+            <div class="multi-target-pills" id="multiTargetPills" style="display: none;"></div>
+            <div class="tap-status" id="tapStatus">👆 Waiting for digit <span id="tapDigitWait">?</span> to appear in ticks...</div>
+            <div id="countdownOverlay">⏳ NEXT TRADE IN: <span id="countdownTimer">0</span>s</div>
+        </div>
+        
         <div class="digit-grid" id="digitGrid"></div>
+        <div style="text-align: center; font-size: 0.8em; color: #8b9bb4; margin-top: 5px;">👆 Click any digit above to override target</div>
     </div>
 
     <div class="card">
-        <button id="btnSingle" class="btn btn-green" onclick="App.placeManualTrade()">✅ Place Trade</button>
-        <button id="btnStop" class="btn btn-stop" onclick="App.stopTrading()">🛑 STOP TRADING</button>
+        <div class="header">🛠️ Sequence Builder</div>
+        <div class="sequence-controls">
+            <div style="flex:1;"><label style="color:var(--accent-purple);">Total Trades:</label><input type="number" id="seqLength" value="5" min="1" max="50" onchange="updateSequenceUI()" style="margin:0; border-color:var(--accent-purple);"></div>
+        </div>
+        <div id="sequenceContainer" class="sequence-grid"></div>
+        <button id="btnStartCustom" class="btn btn-purple" onclick="runCustomSequence()">⚡ Run Sequence</button>
+        <button id="btnSingle" class="btn btn-green" onclick="placeSingleManualTrade()">✅ Place Single Trade</button>
+        <button id="btnStop" class="btn btn-stop" onclick="stopTrading()">🛑 STOP TRADING</button>
+        <div id="loadingBar" style="height: 4px; background: #2d3748; margin-top: 5px; border-radius: 2px; overflow: hidden; display: none;">
+            <div id="progressFill" style="height: 100%; width: 0%; background: var(--accent-purple); transition: width 0.3s;"></div>
+        </div>
     </div>
 
     <div class="card">
@@ -201,314 +343,978 @@
 </div>
 
 <script>
-/** * Smart Trade Bot - Auto-Reconnect & Zero-Delay Execution Edition
- */
-const App = (() => {
     const APP_ID = 1089;
-    let ws = null;
-    let isReconnecting = false;
-    
-    // Core State
-    const State = {
-        connected: false, running: false, shouldStop: false,
-        ticks: [], currentTarget: null, manualOverride: null, sessionProfit: 0,
-        stats: { wins: 0, losses: 0 },
-        currentDecimals: 2, 
-        martingale: {
-            step: 0,
-            recoveryAmount: 0,
-            lastPayoutRatio: 0.0964, 
-            payoutSamples: []
-        }
-    };
+    let ws;
+    let tickHistory = [];
+    let currentTargetDigit = null;
+    let currentTargetPerc = 100;
+    let manualOverrideDigit = null;
+    let isAutoPilot = false; 
+    let sessionProfit = 0;
+    let isRunning = false;
+    let shouldStop = false;
+    let displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
+    let isConnected = false;
 
-    // Cached DOM Elements
-    const DOM = {};
-    window.addEventListener('DOMContentLoaded', () => {
-        ['apiToken', 'statusText', 'loginForm', 'accountInfo', 'balanceDisplay', 'sessionProfit',
-         'market', 'stake', 'tickMinimum', 'targetBox', 'tickCounter', 'targetDigitDisplay', 'targetStatusMsg', 
-         'digitGrid', 'statWins', 'statLosses', 'statWinRate', 'btnSingle', 'btnStop', 'logArea',
-         'martingaleToggle', 'martingaleMaxStake', 'martingaleCurrentStep', 'payoutRatioDisplay', 
-         'recoveryAmountDisplay', 'martingaleNextStake'
-        ].forEach(id => DOM[id] = document.getElementById(id));
+    // Target Preference
+    let targetMode = 'coldest';
+
+    // Multi-digit targeting
+    let targetedDigits = [];
+    let digitRankMap = {};
+
+    // Streak tracking
+    let tradeResults = [];
+    let wins = 0;
+    let losses = 0;
+    let currentStreakType = null;
+    let currentStreakCount = 0;
+    let maxWinStreak = 0;
+    let maxLossStreak = 0;
+
+    // Smart Recovery state
+    let martingaleStep = 0;           // 0 = normal, 1 = recovering
+    let consecutiveLosses = 0;
+    let recoveryAmount = 0;           // total $ to win back
+    let lastPayoutRatio = 0.0964;     // default ~9.6% for DIGITDIFF, updated from real trades
+    let payoutSamples = [];           // store recent payout ratios to average
+
+    // Auto-recovery state
+    let isAutoRecovering = false;
+    let autoRecoveryResolve = null;
+    let recoveryDonePromise = null;   
+    let recoveryDoneResolve = null;
+
+    // Trade tagging 
+    let nextTradeTag = 'manual';      
+    let contractTagMap = {};          
+    let lastRecoveryContractId = null;
+
+    // Strategy state
+    let coldestStrategy = 'rapid';
+    let waitingForTap = false;
+    let tapTargetDigit = null;
+    let tapResolve = null;
+
+    // Tap loop state
+    let isInTapLoop = false;          
+    let tapLoopResolve = null;        
+
+    window.onload = function() { updateSequenceUI(); updateMartingaleDisplay(); updateStreakUI(); };
+
+    // ── Target Preference Toggle ──
+    function setTargetMode(mode) {
+        targetMode = mode;
+        document.querySelectorAll('#targetModeToggle .strategy-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.target === mode);
+        });
         
-        DOM.stake.addEventListener('input', updateMartingaleUI);
-        buildDigitGrid();
-    });
+        // Update label text based on mode logic
+        document.getElementById('thresholdLabel').innerText = mode === 'coldest' ? 'Trigger Below:' : 'Trigger Above:';
+        
+        log(`Target Preference → ${mode.toUpperCase()}`, "log-info");
+        updateUI(tickHistory.length, parseInt(document.getElementById('tickMinimum').value) || 50);
+    }
 
-    function buildDigitGrid() {
-        let html = '';
-        for(let i=0; i<=9; i++) {
-            html += `
-                <div class="digit-box" id="dbox-${i}" onclick="App.setManualDigit(${i})">
-                    <span class="badge badge-cold">❄️</span>
-                    <span class="badge badge-hot">🔥</span>
-                    <span id="emoji-${i}" class="result-emoji"></span>
-                    <b style="font-size: 1.2em;">${i}</b>
-                    <span id="dp-${i}" class="text-xs c-muted mt-1">0.0%</span>
-                </div>`;
+    // ── Strategy toggle ──
+    function setStrategy(strategy) {
+        coldestStrategy = strategy;
+        document.querySelectorAll('#strategyToggle .strategy-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.strategy === strategy);
+        });
+        document.getElementById('tapExplainer').style.display = strategy === 'tap' ? 'block' : 'none';
+        if(strategy !== 'tap' && waitingForTap) {
+            waitingForTap = false;
+            tapTargetDigit = null;
+            document.getElementById('tapStatus').classList.remove('active');
+            document.getElementById('targetBox').classList.remove('tap-waiting');
         }
-        DOM.digitGrid.innerHTML = html;
-        for(let i=0; i<=9; i++) {
-            DOM[`dbox-${i}`] = document.getElementById(`dbox-${i}`);
-            DOM[`dp-${i}`] = document.getElementById(`dp-${i}`);
-            DOM[`emoji-${i}`] = document.getElementById(`emoji-${i}`);
+        log(`Execution Strategy → ${strategy === 'rapid' ? '⚡ Rapid Fire' : '👆 Tap & Trade'}`, "log-info");
+    }
+
+    // ── Build digit grid ──
+    const grid = document.getElementById('digitGrid');
+    for(let i=0; i<=9; i++) {
+        grid.innerHTML += `
+            <div class="digit-box" id="dbox-${i}" onclick="selectManualDigit(${i})">
+                <span class="badge badge-cold">❄️</span>
+                <span class="badge badge-hot">🔥</span>
+                <span class="rank-badge" id="rank-${i}"></span>
+                <span id="emoji-${i}" class="result-emoji"></span>
+                <b>${i}</b><br><span id="dp-${i}" style="font-size:0.75em; color: var(--text-secondary);">0.0%</span>
+            </div>`;
+    }
+
+    // ══════════════════════════════════════════════
+    //  SEQUENCE UI
+    // ══════════════════════════════════════════════
+    function updateSequenceUI() {
+        const length = parseInt(document.getElementById('seqLength').value) || 1;
+        const container = document.getElementById('sequenceContainer');
+        const existingValues = Array.from(container.querySelectorAll('select')).map(s => s.value);
+        container.innerHTML = ''; 
+        for(let i=0; i<length; i++) {
+            let def = (i < existingValues.length) ? existingValues[i] : (i === 0 ? "60" : "0");
+            container.insertAdjacentHTML('beforeend', `
+                <div class="seq-step">
+                    <label>Trade ${i+1}</label>
+                    <select class="seq-select" id="seq-delay-${i}">
+                        <option value="0" ${def==="0"?"selected":""}>Instant</option>
+                        <option value="60" ${def==="60"?"selected":""}>Wait 1m</option>
+                        <option value="120" ${def==="120"?"selected":""}>Wait 2m</option>
+                    </select>
+                </div>`);
         }
     }
 
-    const log = (msg, cls="log-info") => {
-        const time = new Date().toLocaleTimeString();
-        DOM.logArea.insertAdjacentHTML('afterbegin', `<div class="${cls}">[${time}] ${msg}</div>`);
-    };
+    // ══════════════════════════════════════════════
+    //  MARKET SWITCHING
+    // ══════════════════════════════════════════════
+    function switchMarket() {
+        if(!isConnected) return;
+        ws.send(JSON.stringify({ forget_all: 'ticks' }));
+        log("Switching market...", "log-info");
+        resetData();
+        setTimeout(() => {
+            const market = document.getElementById('market').value;
+            ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+            log(`Connected to ${market}`, "log-win");
+        }, 300);
+    }
 
-    const updateUI = () => {
-        const minTicks = parseInt(DOM.tickMinimum.value) || 50;
-        const count = State.ticks.length;
-        DOM.tickCounter.innerText = `${count} / ${minTicks}`;
-        if(count === 0) return;
-
-        const freq = Array(10).fill(0);
-        State.ticks.forEach(t => freq[t]++);
-        let arr = freq.map((c, i) => ({ digit: i, perc: (c / count) * 100 })).sort((a,b) => a.perc - b.perc);
-        
-        arr.forEach(item => {
-            DOM[`dp-${item.digit}`].innerText = item.perc.toFixed(1) + '%';
-            DOM[`dbox-${item.digit}`].classList.remove('cold-digit', 'hot-digit', 'manual-digit');
-        });
-
-        DOM[`dbox-${arr[9].digit}`].classList.add('hot-digit');
-        DOM[`dbox-${arr[0].digit}`].classList.add('cold-digit');
-
-        if(State.manualOverride !== null) {
-            DOM[`dbox-${State.manualOverride}`].classList.add('manual-digit');
-        } else if(count >= minTicks) {
-            State.currentTarget = arr[0].digit;
-            DOM.targetDigitDisplay.innerText = State.currentTarget;
-            DOM.targetStatusMsg.innerText = `Auto: Coldest`;
+    // ══════════════════════════════════════════════
+    //  AUTOPILOT
+    // ══════════════════════════════════════════════
+    function toggleAutoPilot() {
+        isAutoPilot = document.getElementById('autoPilotToggle').checked;
+        const statusText = document.getElementById('controlModeText');
+        if(isAutoPilot) {
+            manualOverrideDigit = null;
+            document.querySelectorAll('.manual-digit').forEach(el => el.classList.remove('manual-digit'));
+            document.getElementById('btnStartCustom').disabled = true;
+            document.getElementById('btnSingle').disabled = true;
+            statusText.innerText = "🤖 AUTO MODE";
+            statusText.style.color = "var(--accent-green)";
+            log(`Auto-Pilot ON — watching for trigger`, "log-win");
+            startAutoPilotWatch();
+        } else {
+            document.getElementById('btnStartCustom').disabled = false;
+            document.getElementById('btnSingle').disabled = false;
+            statusText.innerText = "✋ MANUAL MODE";
+            statusText.style.color = "var(--text-secondary)";
+            shouldStop = true; 
+            log("Auto-Pilot OFF", "log-loss");
         }
-    };
+    }
 
-    const handleTick = (price) => {
-        const minTicks = parseInt(DOM.tickMinimum.value) || 50;
-        
-        const digit = parseInt(Number(price).toFixed(State.currentDecimals).slice(-1));
-        
-        State.ticks.push(digit);
-        if(State.ticks.length > minTicks) State.ticks.shift();
-        
-        const box = DOM[`dbox-${digit}`];
-        if(box) { 
-            box.classList.add('active-tick'); 
-            setTimeout(() => box.classList.remove('active-tick'), 150); 
+    async function startAutoPilotWatch() {
+        shouldStop = false;
+        while(isAutoPilot && !shouldStop) {
+            if(currentTargetDigit === null) { await new Promise(r => setTimeout(r, 1000)); continue; }
+            
+            const threshold = parseFloat(document.getElementById('threshold').value);
+            let triggered = false;
+            
+            if(targetMode === 'coldest' && currentTargetPerc <= threshold) triggered = true;
+            if(targetMode === 'hottest' && currentTargetPerc >= threshold) triggered = true;
+
+            if(triggered) {
+                log(`Trigger hit! ${targetMode.toUpperCase()} digit ${currentTargetDigit} at ${currentTargetPerc.toFixed(1)}%`, "log-win");
+                const mode = document.getElementById('autoPilotMode').value;
+                if(mode === 'single') {
+                    if(coldestStrategy === 'tap') {
+                        const rounds = parseInt(document.getElementById('tapRounds').value) || 1;
+                        await runTapTradeLoop(rounds, 'autopilot');
+                    } else {
+                        nextTradeTag = 'manual';
+                        await placeTrade(1, 1);
+                    }
+                } else if(mode === 'multi') {
+                    await runMultiDigitSweep();
+                } else { 
+                    await runCustomSequence(true); 
+                }
+                log("Auto-Pilot sequence done", "log-info");
+                document.getElementById('autoPilotToggle').checked = false;
+                toggleAutoPilot();
+                break;
+            }
+            await new Promise(r => setTimeout(r, 2000));
         }
-        
-        updateUI();
-    };
+    }
 
-    // ─── MARTINGALE CALCS ───
-    const getBaseStake = () => parseFloat(DOM.stake.value) || 0.35;
-    
-    const getCurrentStake = () => {
-        if(!DOM.martingaleToggle.checked || State.martingale.step === 0) return getBaseStake();
-        
-        const max = parseFloat(DOM.martingaleMaxStake.value) || 50;
-        const needed = State.martingale.recoveryAmount / State.martingale.lastPayoutRatio;
-        
-        return Math.min(Math.max(needed, getBaseStake()), max);
-    };
+    // ══════════════════════════════════════════════
+    //  MANUAL DIGIT SELECTION
+    // ══════════════════════════════════════════════
+    function selectManualDigit(digit) {
+        if(isAutoPilot) return alert("Disable Auto-Pilot first.");
+        manualOverrideDigit = digit;
+        document.querySelectorAll('.manual-digit').forEach(el => el.classList.remove('manual-digit'));
+        document.getElementById(`dbox-${digit}`).classList.add('manual-digit');
+        updateTargetBoxVisuals(digit, true);
+        log(`Manual target set → digit ${digit}`, "log-warn");
+    }
 
-    const updateMartingaleUI = () => {
-        const isRec = State.martingale.step > 0 && DOM.martingaleToggle.checked;
-        DOM.martingaleCurrentStep.innerText = isRec ? 'RECOVERING' : 'NORMAL';
-        DOM.martingaleCurrentStep.className = isRec ? 'c-red bold' : 'c-green bold';
-        DOM.recoveryAmountDisplay.innerText = `$${State.martingale.recoveryAmount.toFixed(2)}`;
-        DOM.martingaleNextStake.innerText = `$${getCurrentStake().toFixed(2)}`;
-        DOM.payoutRatioDisplay.innerText = (State.martingale.lastPayoutRatio * 100).toFixed(1) + '%';
-    };
-
-    // Keep-alive Ping to prevent API disconnects when idle
-    setInterval(() => {
-        if(State.connected && ws && ws.readyState === 1) {
-            ws.send(JSON.stringify({ ping: 1 }));
-        }
-    }, 15000); 
-
-    const connectAPI = () => {
-        const token = DOM.apiToken.value;
+    // ══════════════════════════════════════════════
+    //  CONNECTION & MESSAGE HANDLER
+    // ══════════════════════════════════════════════
+    function connectAPI() {
+        const token = document.getElementById('apiToken').value;
         if(!token) return alert("Enter Token");
-        
-        if(ws && ws.readyState === 1) return; // Prevent double connections
-
         ws = new WebSocket(`wss://ws.binaryws.com/websockets/v3?app_id=${APP_ID}`);
-        
-        ws.onopen = () => { 
-            ws.send(JSON.stringify({ authorize: token })); 
-            if(!isReconnecting) log("Connecting..."); 
-        };
-
-        ws.onclose = () => {
-            State.connected = false;
-            DOM.statusText.innerText = "Reconnecting...";
-            DOM.statusText.className = "text-sm c-orange";
-            isReconnecting = true;
-            setTimeout(connectAPI, 3000); // Auto-reconnect loop triggers every 3 seconds if dropped
-        };
-
-        ws.onerror = () => ws.close(); // Force the close event to trigger the reconnect loop
-        
+        ws.onopen = () => { ws.send(JSON.stringify({ authorize: token })); log("Connecting...", "log-info"); };
         ws.onmessage = (msg) => {
             const data = JSON.parse(msg.data);
-            if(data.error) return log(`Error: ${data.error.message}`, "log-loss");
+            if(data.error) { log(`Error: ${data.error.message}`, "log-loss"); return; }
 
             if(data.msg_type === 'authorize') {
-                State.connected = true;
-                DOM.loginForm.style.display = 'none';
-                DOM.accountInfo.style.display = 'block';
-                DOM.statusText.innerText = "Connected";
-                DOM.statusText.className = "text-sm c-green";
-                if(isReconnecting) log("Connection Restored!", "log-win");
-                isReconnecting = false;
-                
+                isConnected = true;
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('accountInfo').style.display = 'block';
+                document.getElementById('statusText').innerText = "Connected";
+                document.getElementById('statusText').style.color = "var(--accent-green)";
                 ws.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-                switchMarket(); // Re-sync the market ticks after connection is established
+                ws.send(JSON.stringify({ ticks: document.getElementById('market').value, subscribe: 1 }));
             }
 
-            if(data.msg_type === 'balance') DOM.balanceDisplay.innerText = `$${data.balance.balance}`;
-            if(data.msg_type === 'tick') handleTick(data.tick.quote);
-            
-            // Subscribes to contract updates immediately upon successful direct purchase
-            if(data.msg_type === 'buy') {
-                ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 }));
+            if(data.msg_type === 'balance') {
+                document.getElementById('balanceDisplay').innerText = data.balance.currency + " " + data.balance.balance;
             }
-            
+
+            if(data.msg_type === 'tick') {
+                updateStats(data.tick.quote);
+            }
+
+            if(data.msg_type === 'proposal') {
+                ws.send(JSON.stringify({ buy: data.proposal.id, price: data.proposal.ask_price }));
+            }
+
+            if(data.msg_type === 'buy') {
+                const cid = data.buy.contract_id;
+                contractTagMap[cid] = nextTradeTag;
+                log(`Trade placed (${nextTradeTag}) — contract ${cid}`, 'log-info');
+                ws.send(JSON.stringify({ proposal_open_contract: 1, contract_id: cid, subscribe: 1 }));
+            }
+
             if(data.msg_type === 'proposal_open_contract' && data.proposal_open_contract.is_sold) {
-                resolveTrade(data.proposal_open_contract);
+                handleContractResult(data.proposal_open_contract);
             }
         };
-    };
+    }
 
-    const resolveTrade = (contract) => {
+    // ══════════════════════════════════════════════
+    //  CONTRACT RESULT HANDLER 
+    // ══════════════════════════════════════════════
+    function handleContractResult(contract) {
         const profit = parseFloat(contract.profit);
+        const barrier = parseInt(contract.barrier);
         const isWin = profit > 0;
-        const buyPrice = parseFloat(contract.buy_price) || 0;
-        const barrier = contract.barrier;
-        
-        State.sessionProfit += profit;
-        DOM.sessionProfit.innerText = (State.sessionProfit >= 0 ? "+$" : "-$") + Math.abs(State.sessionProfit).toFixed(2);
-        DOM.sessionProfit.className = `text-sm mt-1 text-right ${State.sessionProfit >= 0 ? 'c-green' : 'c-red'}`;
+        const cid = contract.contract_id;
+        const tag = contractTagMap[cid] || 'unknown';
 
-        const emoji = DOM[`emoji-${barrier}`];
-        if(emoji) {
-            emoji.innerText = isWin ? "💰" : "😞";
-            emoji.classList.add('show-emoji');
-            setTimeout(() => emoji.classList.remove('show-emoji'), 2000);
+        delete contractTagMap[cid];
+
+        sessionProfit += profit;
+        document.getElementById('sessionProfit').innerText = (sessionProfit >= 0 ? "+$" : "-$") + Math.abs(sessionProfit).toFixed(2);
+        document.getElementById('sessionProfit').style.color = sessionProfit >= 0 ? "var(--accent-green)" : "var(--accent-red)";
+        
+        const emojiEl = document.getElementById(`emoji-${barrier}`);
+        if(emojiEl) {
+            emojiEl.innerText = isWin ? "💰" : "😞";
+            emojiEl.classList.add('show-emoji');
+            setTimeout(() => emojiEl.classList.remove('show-emoji'), 3000);
         }
 
-        isWin ? State.stats.wins++ : State.stats.losses++;
-        DOM.statWins.innerText = State.stats.wins;
-        DOM.statLosses.innerText = State.stats.losses;
-        DOM.statWinRate.innerText = ((State.stats.wins / (State.stats.wins + State.stats.losses)) * 100).toFixed(1) + "%";
-        
-        log(`${isWin ? '✅ WIN' : '❌ LOSS'} ${profit > 0 ? '+' : ''}$${profit.toFixed(2)} | Digit ${barrier}`, isWin ? 'log-win' : 'log-loss');
+        const exitDigit = contract.exit_tick_display_value ? contract.exit_tick_display_value.slice(-1) : '?';
+        const buyPrice = parseFloat(contract.buy_price) || 0;
 
         if(isWin && buyPrice > 0) {
-            State.martingale.payoutSamples.push(profit / buyPrice);
-            if(State.martingale.payoutSamples.length > 20) State.martingale.payoutSamples.shift();
-            State.martingale.lastPayoutRatio = State.martingale.payoutSamples.reduce((a,b)=>a+b,0) / State.martingale.payoutSamples.length;
+            learnPayoutRatio(buyPrice, profit);
         }
 
-        if(DOM.martingaleToggle.checked) {
+        if(!isWin && isMartingaleEnabled() && martingaleStep === 0) {
+            recoveryAmount = Math.abs(profit);
+        }
+
+        if(tag === 'taploop') {
+            recordTradeResult(isWin, profit, barrier);
+            handleMartingaleResult(isWin, tag);
+
             if(isWin) {
-                if(State.martingale.step > 0) log(`Recovery Successful! Back to base stake.`, "log-win");
-                State.martingale.step = 0;
-                State.martingale.recoveryAmount = 0;
+                log(`✅ TAP WIN +$${profit.toFixed(2)} | digit ${barrier}, exit ${exitDigit} | streak ${currentStreakCount}${currentStreakType}`, "log-win");
             } else {
-                State.martingale.step++;
-                State.martingale.recoveryAmount += Math.abs(profit); 
-                
-                const neededStake = State.martingale.recoveryAmount / State.martingale.lastPayoutRatio;
-                const max = parseFloat(DOM.martingaleMaxStake.value) || 50;
-                
-                if(neededStake > max) {
-                    log(`⚠️ Safety Limit Hit. Next stake would be $${neededStake.toFixed(2)}. Resetting to base.`, "log-loss");
-                    State.martingale.step = 0;
-                    State.martingale.recoveryAmount = 0;
+                log(`❌ TAP LOSS -$${Math.abs(profit).toFixed(2)} | digit ${barrier}, exit ${exitDigit} | recovery stake $${getCurrentStake().toFixed(2)} | streak ${currentStreakCount}${currentStreakType}`, "log-loss");
+            }
+
+            if(tapLoopResolve) {
+                const resolver = tapLoopResolve;
+                tapLoopResolve = null;
+                resolver(isWin);
+            }
+
+        } else if(tag === 'recovery') {
+            recordTradeResult(isWin, profit, barrier);
+            handleMartingaleResult(isWin, tag);
+
+            if(isWin) {
+                log(`✅ RECOVERY WIN +$${profit.toFixed(2)} | digit ${barrier}, exit ${exitDigit} | Balance restored!`, "log-win");
+            } else {
+                log(`❌ RECOVERY LOSS -$${Math.abs(profit).toFixed(2)} | digit ${barrier}, exit ${exitDigit} | Giving up, back to base`, "log-loss");
+            }
+
+            if(autoRecoveryResolve) {
+                const resolver = autoRecoveryResolve;
+                autoRecoveryResolve = null;
+                resolver(isWin);
+            }
+
+        } else if(tag === 'sequence' || tag === 'sweep') {
+            if(isAutoRecovering) {
+                recordTradeResult(isWin, profit, barrier);
+                if(isWin) {
+                    log(`✅ LATE SEQ WIN +$${profit.toFixed(2)} | digit ${barrier}, exit ${exitDigit} | (old trade, recovery unaffected)`, "log-win");
                 } else {
-                    log(`Martingale active. Next stake bumped to $${neededStake.toFixed(2)} for your next trade.`, "log-warn");
+                    log(`❌ LATE SEQ LOSS -$${Math.abs(profit).toFixed(2)} | digit ${barrier}, exit ${exitDigit} | (old trade, recovery unaffected)`, "log-loss");
+                }
+            } else {
+                recordTradeResult(isWin, profit, barrier);
+                handleMartingaleResult(isWin, tag);
+
+                if(isWin) {
+                    log(`✅ SEQ WIN +$${profit.toFixed(2)} | digit ${barrier}, exit ${exitDigit} | streak ${currentStreakCount}${currentStreakType}`, "log-win");
+                } else {
+                    log(`❌ SEQ LOSS -$${Math.abs(profit).toFixed(2)} | digit ${barrier}, exit ${exitDigit} | streak ${currentStreakCount}${currentStreakType}`, "log-loss");
+                }
+
+                if(!isWin && !isAutoRecovering && !isInTapLoop && !isAutoPilot && isMartingaleEnabled() && martingaleStep > 0) {
+                    triggerAutoRecovery();
                 }
             }
-            updateMartingaleUI();
+
+        } else {
+            recordTradeResult(isWin, profit, barrier);
+            handleMartingaleResult(isWin, tag);
+
+            if(isWin) {
+                log(`✅ WIN +$${profit.toFixed(2)} | digit ${barrier}, exit ${exitDigit} | streak ${currentStreakCount}${currentStreakType}`, "log-win");
+            } else {
+                log(`❌ LOSS -$${Math.abs(profit).toFixed(2)} | digit ${barrier}, exit ${exitDigit} | streak ${currentStreakCount}${currentStreakType}`, "log-loss");
+            }
+
+            if(!isWin && !isAutoRecovering && !isInTapLoop && !isAutoPilot && isMartingaleEnabled() && martingaleStep > 0) {
+                triggerAutoRecovery();
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    //  TICK DATA & ANALYSIS
+    // ══════════════════════════════════════════════
+    function resetData() {
+        tickHistory = []; currentTargetDigit = null; manualOverrideDigit = null;
+        targetedDigits = []; digitRankMap = {};
+        displayedPercentages = [0,0,0,0,0,0,0,0,0,0];
+        updateUI(0, parseInt(document.getElementById('tickMinimum').value) || 50);
+    }
+
+    function enforceMinimum() {
+        const min = parseInt(document.getElementById('tickMinimum').value) || 50;
+        if(tickHistory.length > min) tickHistory = tickHistory.slice(-min);
+        updateUI(tickHistory.length, min);
+    }
+
+    function updateStats(price) {
+        const min = parseInt(document.getElementById('tickMinimum').value) || 50;
+        const select = document.getElementById('market');
+        const decimals = parseInt(select.options[select.selectedIndex].getAttribute('data-digits')) || 2;
+        const digit = parseInt(Number(price).toFixed(decimals).slice(-1));
+        tickHistory.push(digit);
+        if(tickHistory.length > min) tickHistory.shift();
+        const box = document.getElementById(`dbox-${digit}`);
+        if(box) { box.classList.add('active-tick'); setTimeout(() => box.classList.remove('active-tick'), 200); }
+        updateUI(tickHistory.length, min);
+
+        if(waitingForTap && digit === tapTargetDigit && tapResolve) {
+            log(`Tap detected! Digit ${digit} appeared → firing trade`, "log-win");
+            waitingForTap = false;
+            document.getElementById('tapStatus').classList.remove('active');
+            document.getElementById('targetBox').classList.remove('tap-waiting');
+            tapResolve();
+            tapResolve = null;
+        }
+    }
+
+    function updateUI(count, min) {
+        document.getElementById('tickCounter').innerText = `${count} / ${min} Ticks`;
+        const counts = {}; tickHistory.forEach(x => counts[x] = (counts[x] || 0) + 1);
+        const targetCount = Math.max(1, Math.min(5, parseInt(document.getElementById('targetCount').value) || 1));
+
+        let digitPercs = [];
+        for(let i=0; i<=9; i++) {
+            const perc = count === 0 ? 0 : (counts[i] || 0) / count * 100;
+            displayedPercentages[i] += (perc - displayedPercentages[i]) * 0.2;
+            document.getElementById(`dp-${i}`).innerText = displayedPercentages[i].toFixed(1) + "%";
+            document.getElementById(`dbox-${i}`).classList.remove('cold-digit', 'hot-digit', 'targeted-digit');
+            document.getElementById(`rank-${i}`).style.display = 'none';
+            digitPercs.push({ digit: i, perc: perc });
         }
 
-        endRunState();
-    };
+        digitPercs.sort((a, b) => a.perc - b.perc);
 
-    const placeTrade = async (target) => {
-        if(!State.connected || target === null || State.running) return;
+        let absoluteCold = digitPercs[0].digit;
+        let absoluteHot = digitPercs[9].digit;
+
+        // Base visual styling for extreme boundaries
+        if(count > 0) {
+            document.getElementById(`dbox-${absoluteHot}`).classList.add('hot-digit');
+            document.getElementById(`dbox-${absoluteCold}`).classList.add('cold-digit');
+        }
+
+        // Filter depending on mode preference
+        let sortedForTarget = targetMode === 'coldest' ? [...digitPercs] : [...digitPercs].reverse();
+
+        targetedDigits = [];
+        digitRankMap = {};
+        if(count >= min) {
+            for(let r = 0; r < targetCount && r < 10; r++) {
+                const d = sortedForTarget[r];
+                targetedDigits.push(d);
+                digitRankMap[d.digit] = r + 1;
+                const box = document.getElementById(`dbox-${d.digit}`);
+                
+                if (r > 0) {
+                    box.classList.add('targeted-digit');
+                }
+
+                const rankBadge = document.getElementById(`rank-${d.digit}`);
+                rankBadge.innerText = `#${r+1}`;
+                rankBadge.style.display = 'block';
+            }
+        }
+
+        currentTargetPerc = count > 0 ? sortedForTarget[0].perc : (targetMode === 'coldest' ? 100 : 0);
+
+        const bestTarget = count > 0 ? sortedForTarget[0].digit : -1;
+        if(!manualOverrideDigit && manualOverrideDigit !== 0) {
+            if(count < min) {
+                currentTargetDigit = null;
+                updateTargetBoxVisuals(null, false);
+            } else if(currentTargetDigit !== bestTarget) {
+                currentTargetDigit = bestTarget;
+                updateTargetBoxVisuals(bestTarget, false);
+            }
+        }
+
+        updateMultiTargetPills(count >= min);
+    }
+
+    function updateMultiTargetPills(ready) {
+        const pillsEl = document.getElementById('multiTargetPills');
+        const targetCount = parseInt(document.getElementById('targetCount').value) || 1;
+        if(!ready || targetCount <= 1) { pillsEl.style.display = 'none'; return; }
+        pillsEl.style.display = 'flex';
+        pillsEl.innerHTML = targetedDigits.map((d, i) => 
+            `<span class="target-pill ${i === 0 ? 'primary' : ''} ${i === 0 && targetMode === 'hottest' ? 'hot' : ''}">${d.digit} (${d.perc.toFixed(1)}%)</span>`
+        ).join('');
+    }
+
+    function updateTargetBoxVisuals(digit, isManual) {
+        const displayEl = document.getElementById('targetDigitDisplay');
+        const statusEl = document.getElementById('targetStatusMsg');
+        if(digit === null) {
+            displayEl.innerText = "⏳"; statusEl.innerText = `Collecting data...`;
+            document.getElementById('targetBox').style.borderColor = "var(--accent-orange)";
+        } else {
+            const newVal = digit.toString();
+            if(displayEl.innerText !== newVal) {
+                displayEl.classList.add('slide-out-up');
+                setTimeout(() => { displayEl.innerText = newVal; displayEl.classList.remove('slide-out-up'); displayEl.classList.add('slide-in-up'); void displayEl.offsetWidth; displayEl.classList.remove('slide-in-up'); }, 300);
+            }
+            statusEl.innerText = isManual ? `Manual: ${digit}` : `Auto: ${digit} (${targetMode})`;
+            
+            // Set box color depending on the mode
+            let targetColor = targetMode === 'coldest' ? "var(--accent-blue)" : "var(--accent-red)";
+            document.getElementById('targetBox').style.borderColor = isManual ? "var(--accent-orange)" : targetColor;
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    //  STREAK TRACKING
+    // ══════════════════════════════════════════════
+    function recordTradeResult(isWin, profit, digit) {
+        tradeResults.push({ win: isWin, profit, digit });
+        if(isWin) {
+            wins++;
+            consecutiveLosses = 0;
+            if(currentStreakType === 'W') currentStreakCount++;
+            else { currentStreakType = 'W'; currentStreakCount = 1; }
+            if(currentStreakCount > maxWinStreak) maxWinStreak = currentStreakCount;
+        } else {
+            losses++;
+            consecutiveLosses++;
+            if(currentStreakType === 'L') currentStreakCount++;
+            else { currentStreakType = 'L'; currentStreakCount = 1; }
+            if(currentStreakCount > maxLossStreak) maxLossStreak = currentStreakCount;
+        }
+        updateStreakUI();
+
+        const maxConsec = parseInt(document.getElementById('maxConsecLosses').value) || 99;
+        if(consecutiveLosses >= maxConsec) {
+            log(`SAFETY STOP — ${consecutiveLosses} losses in a row (limit: ${maxConsec})`, "log-loss");
+            shouldStop = true;
+            if(isAutoRecovering) cancelAutoRecovery();
+            if(isAutoPilot) {
+                document.getElementById('autoPilotToggle').checked = false;
+                toggleAutoPilot();
+            }
+        }
+    }
+
+    function updateStreakUI() {
+        document.getElementById('statWins').innerText = wins;
+        document.getElementById('statLosses').innerText = losses;
+        const total = wins + losses;
+        document.getElementById('statWinRate').innerText = total === 0 ? '0%' : (wins / total * 100).toFixed(1) + '%';
         
-        const stake = getCurrentStake().toFixed(2);
-        State.running = true;
-        State.shouldStop = false;
-        DOM.btnSingle.disabled = true;
-        DOM.btnStop.style.display = 'block';
-        
-        log(`Trading $${stake} on digit ${target}...`, "log-warn");
-        
-        // OPTIMIZATION: Direct Parameter Buy (Zero-Delay Execution)
-        // Bypasses the proposal requirement entirely to eliminate latency.
-        ws.send(JSON.stringify({
-            buy: 1, 
-            price: stake, 
-            parameters: {
-                amount: stake, 
+        const streakEl = document.getElementById('statCurrentStreak');
+        if(currentStreakType === null) {
+            streakEl.innerText = '—';
+            streakEl.style.color = 'var(--text-secondary)';
+        } else {
+            streakEl.innerText = `${currentStreakCount}${currentStreakType}`;
+            streakEl.style.color = currentStreakType === 'W' ? 'var(--accent-green)' : 'var(--accent-red)';
+        }
+        document.getElementById('statMaxStreak').innerText = `${maxWinStreak}W / ${maxLossStreak}L`;
+
+        const bar = document.getElementById('streakBar');
+        const last20 = tradeResults.slice(-20);
+        bar.innerHTML = '';
+        for(let i = 0; i < 20; i++) {
+            if(i < last20.length) bar.innerHTML += `<div class="streak-dot ${last20[i].win ? 'win' : 'loss'}"></div>`;
+            else bar.innerHTML += `<div class="streak-dot empty"></div>`;
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    //  SMART RECOVERY SYSTEM
+    // ══════════════════════════════════════════════
+    function isMartingaleEnabled() {
+        return document.getElementById('martingaleToggle').checked;
+    }
+
+    function getBaseStake() {
+        return parseFloat(document.getElementById('stake').value) || 0.35;
+    }
+
+    function getCurrentStake() {
+        if(!isMartingaleEnabled() || martingaleStep === 0) return getBaseStake();
+        const maxStake = parseFloat(document.getElementById('martingaleMaxStake').value) || 50;
+        const neededStake = recoveryAmount / lastPayoutRatio;
+        return Math.min(Math.max(neededStake, getBaseStake()), maxStake);
+    }
+
+    function learnPayoutRatio(stake, profit) {
+        if(profit <= 0 || stake <= 0) return;
+        const ratio = profit / stake;
+        payoutSamples.push(ratio);
+        if(payoutSamples.length > 20) payoutSamples.shift(); 
+        lastPayoutRatio = payoutSamples.reduce((a, b) => a + b, 0) / payoutSamples.length;
+        document.getElementById('payoutRatioDisplay').innerText = (lastPayoutRatio * 100).toFixed(1) + '%';
+    }
+
+    function handleMartingaleResult(isWin, tag) {
+        if(!isMartingaleEnabled()) {
+            martingaleStep = 0;
+            recoveryAmount = 0;
+            updateMartingaleDisplay();
+            return;
+        }
+
+        if(isWin) {
+            if(martingaleStep > 0) {
+                log(`Recovery WIN → balance restored, back to base $${getBaseStake().toFixed(2)}`, "log-win");
+            }
+            martingaleStep = 0;
+            recoveryAmount = 0;
+        } else {
+            if(martingaleStep === 0) {
+                martingaleStep = 1;
+                log(`Loss detected → recovery mode, need to win back $${recoveryAmount.toFixed(2)} → stake $${getCurrentStake().toFixed(2)}`, "log-warn");
+            } else {
+                log(`Recovery failed (lost $${recoveryAmount.toFixed(2)}) → resetting to base`, "log-loss");
+                martingaleStep = 0;
+                recoveryAmount = 0;
+            }
+        }
+        updateMartingaleDisplay();
+    }
+
+    function updateMartingaleDisplay() {
+        const statusEl = document.getElementById('martingaleCurrentStep');
+        if(martingaleStep === 0) {
+            statusEl.innerText = 'NORMAL';
+            statusEl.style.color = 'var(--accent-green)';
+        } else {
+            statusEl.innerText = 'RECOVERING';
+            statusEl.style.color = 'var(--accent-red)';
+        }
+        document.getElementById('recoveryAmountDisplay').innerText = `$${recoveryAmount.toFixed(2)}`;
+        document.getElementById('martingaleNextStake').innerText = martingaleStep > 0 ? `$${getCurrentStake().toFixed(2)}` : `$${getBaseStake().toFixed(2)}`;
+    }
+
+    // ══════════════════════════════════════════════
+    //  MULTI-DIGIT SWEEP
+    // ══════════════════════════════════════════════
+    async function runMultiDigitSweep() {
+        const targets = [...targetedDigits];
+        if(targets.length === 0) return;
+        log(`Sweep → trading ${targets.length} ${targetMode} digits [${targets.map(t => t.digit).join(', ')}]`, "log-warn");
+        startRunState();
+        for(let i = 0; i < targets.length; i++) {
+            if(shouldStop) break;
+            const d = targets[i];
+            log(`Sweep ${i+1}/${targets.length}: digit ${d.digit} (${d.perc.toFixed(1)}%)`, "log-info");
+            await placeTradeForDigit(d.digit, i+1, targets.length);
+        }
+        endRunState();
+    }
+
+    // ══════════════════════════════════════════════
+    //  AUTO-RECOVERY
+    // ══════════════════════════════════════════════
+    async function triggerAutoRecovery() {
+        if(isAutoRecovering || shouldStop) return;
+        isAutoRecovering = true;
+
+        recoveryDonePromise = new Promise(resolve => { recoveryDoneResolve = resolve; });
+
+        const maxConsec = parseInt(document.getElementById('maxConsecLosses').value) || 99;
+
+        log(`━━ RECOVERY STARTED ━━ need to win back $${recoveryAmount.toFixed(2)}, stake $${getCurrentStake().toFixed(2)}`, "log-warn");
+        showRecoveryBanner(true);
+
+        manualOverrideDigit = null;
+        document.querySelectorAll('.manual-digit').forEach(el => el.classList.remove('manual-digit'));
+
+        if(martingaleStep > 0 && !shouldStop && consecutiveLosses < maxConsec) {
+            await new Promise(r => setTimeout(r, 1500));
+
+            const target = currentTargetDigit;
+            if(target !== null && !shouldStop) {
+                updateRecoveryBanner(target);
+
+                if(coldestStrategy === 'tap') {
+                    log(`Recovery: waiting for digit ${target} to tap...`, "log-info");
+                    const tapped = await waitForTap(target);
+                    if(!tapped) { finishAutoRecovery(); return; }
+                }
+
+                const stake = getCurrentStake();
+                log(`Recovery trade → digit ${target}, stake $${stake.toFixed(2)} to win back $${recoveryAmount.toFixed(2)}`, "log-warn");
+
+                const isWin = await placeTradeAndWaitForResult(target);
+
+                if(isWin) {
+                    log(`━━ RECOVERY SUCCESS ━━ Balance restored!`, "log-win");
+                } else if(isWin === false) {
+                    log(`━━ RECOVERY FAILED ━━ Back to base stake`, "log-loss");
+                }
+            }
+        }
+
+        finishAutoRecovery();
+    }
+
+    function finishAutoRecovery() {
+        isAutoRecovering = false;
+        showRecoveryBanner(false);
+        log(`━━ RECOVERY ENDED ━━`, "log-info");
+        if(recoveryDoneResolve) {
+            recoveryDoneResolve();
+            recoveryDoneResolve = null;
+            recoveryDonePromise = null;
+        }
+    }
+
+    async function placeTradeAndWaitForResult(digit) {
+        return new Promise((resolve) => {
+            autoRecoveryResolve = resolve;
+            nextTradeTag = 'recovery';   
+            const stake = getCurrentStake();
+            ws.send(JSON.stringify({
+                proposal: 1, 
+                amount: stake.toFixed(2), 
+                barrier: digit, 
                 basis: 'stake', 
                 contract_type: 'DIGITDIFF', 
                 currency: 'USD', 
                 duration: 1, 
                 duration_unit: 't', 
-                symbol: DOM.market.value,
-                barrier: target.toString()
+                symbol: document.getElementById('market').value
+            }));
+            setTimeout(() => { 
+                if(autoRecoveryResolve === resolve) { 
+                    autoRecoveryResolve = null; 
+                    resolve(null); 
+                } 
+            }, 30000);
+        });
+    }
+
+    function showRecoveryBanner(show) {
+        document.getElementById('recoveryBanner').classList.toggle('active', show);
+    }
+
+    function updateRecoveryBanner(digit) {
+        document.getElementById('recoveryStep').innerText = recoveryAmount.toFixed(2);
+        document.getElementById('recoveryStake').innerText = getCurrentStake().toFixed(2);
+        document.getElementById('recoveryDigit').innerText = digit;
+    }
+
+    function cancelAutoRecovery() {
+        if(autoRecoveryResolve) { autoRecoveryResolve(null); autoRecoveryResolve = null; }
+        isAutoRecovering = false;
+        showRecoveryBanner(false);
+        if(recoveryDoneResolve) { recoveryDoneResolve(); recoveryDoneResolve = null; recoveryDonePromise = null; }
+        log(`Recovery cancelled`, "log-loss");
+    }
+
+    // ══════════════════════════════════════════════
+    //  TAP & TRADE WAIT
+    // ══════════════════════════════════════════════
+    function waitForTap(digit) {
+        return new Promise((resolve) => {
+            waitingForTap = true;
+            tapTargetDigit = digit;
+            document.getElementById('tapDigitWait').innerText = digit;
+            document.getElementById('tapStatus').classList.add('active');
+            document.getElementById('targetBox').classList.add('tap-waiting');
+
+            tapResolve = () => resolve(true);
+
+            const checkCancel = setInterval(() => {
+                if(shouldStop || !waitingForTap) {
+                    clearInterval(checkCancel);
+                    waitingForTap = false;
+                    tapTargetDigit = null;
+                    document.getElementById('tapStatus').classList.remove('active');
+                    document.getElementById('targetBox').classList.remove('tap-waiting');
+                    if(tapResolve) { tapResolve = null; resolve(false); }
+                }
+            }, 500);
+        });
+    }
+
+    // ══════════════════════════════════════════════
+    //  TAP TRADE LOOP
+    // ══════════════════════════════════════════════
+    async function runTapTradeLoop(totalRounds, source = 'manual') {
+        isInTapLoop = true;
+        const maxConsec = parseInt(document.getElementById('maxConsecLosses').value) || 99;
+
+        log(`━━ TAP LOOP START ━━ ${totalRounds} rounds (${source})`, "log-warn");
+
+        for(let round = 1; round <= totalRounds; round++) {
+            if(shouldStop || consecutiveLosses >= maxConsec) break;
+
+            const target = currentTargetDigit;
+            if(target === null) {
+                log(`Round ${round}/${totalRounds}: no target digit yet, waiting...`, "log-info");
+                await new Promise(r => setTimeout(r, 2000));
+                round--; 
+                continue;
             }
-        }));
-    };
 
-    const switchMarket = () => {
-        if(!State.connected) return;
-        
-        const opt = DOM.market.options[DOM.market.selectedIndex];
-        State.currentDecimals = parseInt(opt.getAttribute('data-digits')) || 2;
+            log(`Round ${round}/${totalRounds}: ${targetMode} is ${target} (${currentTargetPerc.toFixed(1)}%) → waiting for tap...`, "log-info");
+            const tapped = await waitForTap(target);
+            if(!tapped) { log(`Tap loop cancelled`, "log-loss"); break; }
 
-        ws.send(JSON.stringify({ forget_all: 'ticks' }));
-        State.ticks = [];
-        updateUI();
-        ws.send(JSON.stringify({ ticks: DOM.market.value, subscribe: 1 }));
-        log(`Switched to ${DOM.market.value}`);
-    };
+            const stake = getCurrentStake();
+            log(`Round ${round}/${totalRounds}: digit ${target} tapped → trading $${stake.toFixed(2)}`, "log-warn");
 
-    const endRunState = () => {
-        State.running = false;
-        DOM.btnSingle.disabled = false;
-        DOM.btnStop.style.display = 'none';
-    };
+            const isWin = await placeTapTradeAndWait(target);
+            if(isWin === null) { log(`Tap loop: trade timed out`, "log-loss"); break; }
 
-    // Public API
-    return {
-        connectAPI, switchMarket, updateMartingaleUI,
-        stopTrading: () => { State.shouldStop = true; endRunState(); log("STOPPED TRADING", "log-loss"); },
-        setManualDigit: (d) => {
-            State.manualOverride = d === State.manualOverride ? null : d; 
-            for(let i=0; i<=9; i++) DOM[`dbox-${i}`].classList.remove('manual-digit');
-            if(State.manualOverride !== null) {
-                DOM[`dbox-${d}`].classList.add('manual-digit');
-                DOM.targetDigitDisplay.innerText = d;
-                DOM.targetStatusMsg.innerText = `Manual: ${d}`;
+            if(isWin) {
+                log(`Round ${round}/${totalRounds}: ✅ WON → base stake $${getBaseStake().toFixed(2)}`, "log-win");
             } else {
-                updateUI(); 
+                if(martingaleStep > 0) {
+                    log(`Round ${round}/${totalRounds}: ❌ LOST → recovery stake $${getCurrentStake().toFixed(2)} to win back $${recoveryAmount.toFixed(2)}`, "log-loss");
+                } else {
+                    log(`Round ${round}/${totalRounds}: ❌ Recovery failed, back to base`, "log-loss");
+                }
             }
-        },
-        placeManualTrade: () => placeTrade(State.manualOverride !== null ? State.manualOverride : State.currentTarget)
-    };
-})();
+
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        isInTapLoop = false;
+        log(`━━ TAP LOOP END ━━`, "log-info");
+    }
+
+    async function placeTapTradeAndWait(digit) {
+        return new Promise((resolve) => {
+            tapLoopResolve = resolve;
+            nextTradeTag = 'taploop';
+            const stake = getCurrentStake();
+            ws.send(JSON.stringify({
+                proposal: 1,
+                amount: stake.toFixed(2),
+                barrier: digit,
+                basis: 'stake',
+                contract_type: 'DIGITDIFF',
+                currency: 'USD',
+                duration: 1,
+                duration_unit: 't',
+                symbol: document.getElementById('market').value
+            }));
+            setTimeout(() => {
+                if(tapLoopResolve === resolve) {
+                    tapLoopResolve = null;
+                    resolve(null);
+                }
+            }, 30000);
+        });
+    }
+
+    // ══════════════════════════════════════════════
+    //  TRADE EXECUTION
+    // ══════════════════════════════════════════════
+    async function placeSingleManualTrade() {
+        if(isRunning) return;
+        startRunState();
+
+        if(coldestStrategy === 'tap') {
+            const rounds = parseInt(document.getElementById('tapRounds').value) || 1;
+            await runTapTradeLoop(rounds, 'manual');
+        } else {
+            nextTradeTag = 'manual';
+            await placeTrade(1, 1);
+        }
+
+        endRunState();
+    }
+
+    async function runCustomSequence(internalCall = false) {
+        if(isRunning && !internalCall) return; 
+        startRunState();
+
+        if(coldestStrategy === 'tap') {
+            const rounds = parseInt(document.getElementById('tapRounds').value) || 1;
+            await runTapTradeLoop(rounds, 'sequence');
+        } else {
+            const length = parseInt(document.getElementById('seqLength').value) || 1;
+            const delays = Array.from({length}, (_, i) => parseInt(document.getElementById(`seq-delay-${i}`).value));
+
+            for(let i=0; i<delays.length; i++) {
+                if(shouldStop) break;
+
+                if(isAutoRecovering && recoveryDonePromise) {
+                    log(`Sequence paused — waiting for recovery to finish...`, "log-warn");
+                    await recoveryDonePromise;
+                    log(`Sequence resumed after recovery`, "log-info");
+                    if(shouldStop) break;
+                }
+
+                if(delays[i] > 0) {
+                    document.getElementById('countdownOverlay').style.display = 'block';
+                    for(let s=delays[i]; s>0; s--) { 
+                        if(shouldStop) break; 
+                        document.getElementById('countdownTimer').innerText = s; 
+                        await new Promise(r => setTimeout(r, 1000)); 
+                    }
+                    document.getElementById('countdownOverlay').style.display = 'none';
+                }
+                if(shouldStop) break;
+
+                nextTradeTag = 'sequence';
+                log(`Step ${i+1}/${length}: placing trade`, "log-info");
+                await placeTrade(i+1, delays.length);
+            }
+        }
+
+        if(!internalCall) endRunState();
+    }
+
+    async function placeTrade(current, total, lockedDigit = null) {
+        const target = lockedDigit !== null ? lockedDigit : (manualOverrideDigit !== null ? manualOverrideDigit : currentTargetDigit);
+        if(target === null) return;
+        const stake = getCurrentStake();
+        document.getElementById('progressFill').style.width = (current / total * 100) + "%";
+        log(`Sending → digit ${target}, $${stake.toFixed(2)}`, "log-info");
+        ws.send(JSON.stringify({
+            proposal: 1, 
+            amount: stake.toFixed(2), 
+            barrier: target, 
+            basis: 'stake', 
+            contract_type: 'DIGITDIFF', 
+            currency: 'USD', 
+            duration: 1, 
+            duration_unit: 't', 
+            symbol: document.getElementById('market').value
+        }));
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    async function placeTradeForDigit(digit, current, total) {
+        if(coldestStrategy === 'tap') {
+            log(`Sweep: waiting for digit ${digit} to tap...`, "log-info");
+            const tapped = await waitForTap(digit);
+            if(!tapped) return;
+        }
+
+        nextTradeTag = 'sweep';
+        const stake = getCurrentStake();
+        document.getElementById('progressFill').style.width = (current / total * 100) + "%";
+        log(`Sweep → digit ${digit}, $${stake.toFixed(2)}`, "log-info");
+        ws.send(JSON.stringify({
+            proposal: 1, amount: stake.toFixed(2), barrier: digit, basis: 'stake',
+            contract_type: 'DIGITDIFF', currency: 'USD', duration: 1, duration_unit: 't',
+            symbol: document.getElementById('market').value
+        }));
+        await new Promise(r => setTimeout(r, 2000));
+    }
+
+    // ══════════════════════════════════════════════
+    //  RUN STATE MANAGEMENT
+    // ══════════════════════════════════════════════
+    function startRunState() { 
+        isRunning = true; shouldStop = false; 
+        document.getElementById('loadingBar').style.display = 'block'; 
+        document.getElementById('btnStop').style.display = 'block'; 
+        document.getElementById('btnStartCustom').disabled = true; 
+        document.getElementById('btnSingle').disabled = true; 
+    }
+
+    function endRunState() { 
+        isRunning = false; 
+        document.getElementById('btnStop').style.display = 'none'; 
+        document.getElementById('loadingBar').style.display = 'none'; 
+        document.getElementById('progressFill').style.width = "0%";
+        if(!isAutoPilot) {
+            document.getElementById('btnStartCustom').disabled = false; 
+            document.getElementById('btnSingle').disabled = false; 
+        }
+    }
+
+    function stopTrading() { 
+        shouldStop = true; 
+        isInTapLoop = false;
+        if(tapLoopResolve) { tapLoopResolve(null); tapLoopResolve = null; }
+        if(isAutoRecovering) cancelAutoRecovery();
+        if(waitingForTap) { waitingForTap = false; tapTargetDigit = null; }
+        if(isAutoPilot) document.getElementById('autoPilotToggle').click(); 
+        endRunState(); 
+        log("STOPPED", "log-loss"); 
+    }
+
+    function log(msg, cls) { 
+        const area = document.getElementById('logArea'); 
+        area.innerHTML = `<div class="${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>` + area.innerHTML; 
+    }
+
+    document.getElementById('martingaleMaxStake').addEventListener('input', updateMartingaleDisplay);
+    document.getElementById('stake').addEventListener('input', updateMartingaleDisplay);
 </script>
 </body>
 </html>
